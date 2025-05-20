@@ -124,6 +124,10 @@ exp:
 
 blockexp:
   "{" vardefs ";" exp "}" { $$ = new BlockExprAST($2,$4); }
+  | "{" exp "}"                      {                       /* NEW */
+        std::vector<VarBindingAST*> empty;                     /* NEW */
+        $$ = new BlockExprAST(empty, $2);                      /* NEW */
+      }
   
 vardefs:
   binding                 { std::vector<VarBindingAST*> definitions;
