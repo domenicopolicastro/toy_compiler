@@ -56,6 +56,7 @@
   EXTERN     "extern"
   DEF        "def"
   VAR        "var"
+  GLOBAL     "global"
 ;
 
 %token <std::string> IDENTIFIER "id"
@@ -75,6 +76,8 @@
 %type <BlockExprAST*> blockexp
 %type <std::vector<VarBindingAST*>> vardefs
 %type <VarBindingAST*> binding
+%type <RootAST*> stmt
+%type <std::vector<RootAST*>> stmtlist
 
 
 %%
@@ -88,9 +91,12 @@ program:
 |  top ";" program      { $$ = new SeqAST($1,$3); };
 
 top:
-%empty                  { $$ = nullptr; }
-| definition            { $$ = $1; }
-| external              { $$ = $1; };
+    %empty                   { $$ = nullptr; }
+  | definition               { $$ = $1; }
+  | external                 { $$ = $1; }
+  | GLOBAL IDENTIFIER        { $$ = new GlobalDeclAST($2); }
+;
+
 
 definition:
   "def" proto exp       { $$ = new FunctionAST($2,$3); $2->noemit(); };
@@ -106,28 +112,68 @@ idseq:
                          $$ = args; }
 | "id" idseq            { $2.insert($2.begin(),$1); $$ = $2; };
 
+%right ASSIGN;
 %left ":";
 %left "<" "==";
 %left "+" "-";
 %left "*" "/";
 
+ stmt:
+     binding
+       { $$ = (RootAST*)$1; }
+   | IDENTIFIER ASSIGN exp
+       { $$ = (RootAST*) new AssignExprAST($1,$3); }
+   | exp
+       { $$ = (RootAST*)$1; }
+ ;
+
+stmtlist:
+    /* empty */            %empty
+                            { $$ = std::vector<RootAST*>(); }
+  | stmt                    /* un unico statement senza punto-e-virgola */
+                            { $$ = std::vector<RootAST*>{ $1 }; }
+  | stmtlist ";" stmt      /* lista estesa */
+                            {
+                              $$ = $1;
+                              $$ .push_back($3);
+                            }
+;
+
+
+
+
 exp:
-  exp "+" exp           { $$ = new BinaryExprAST('+',$1,$3); }
-| exp "-" exp           { $$ = new BinaryExprAST('-',$1,$3); }
-| exp "*" exp           { $$ = new BinaryExprAST('*',$1,$3); }
-| exp "/" exp           { $$ = new BinaryExprAST('/',$1,$3); }
-| idexp                 { $$ = $1; }
-| "(" exp ")"           { $$ = $2; }
-| "number"              { $$ = new NumberExprAST($1); }
-| expif                 { $$ = $1; }
-| blockexp              { $$ = $1; };
+    IDENTIFIER ASSIGN exp     { $$ = new AssignExprAST($1,$3); }
+  | exp "+" exp               { $$ = new BinaryExprAST('+',$1,$3); }
+  | exp "-" exp               { $$ = new BinaryExprAST('-',$1,$3); }
+  | exp "*" exp               { $$ = new BinaryExprAST('*',$1,$3); }
+  | exp "/" exp               { $$ = new BinaryExprAST('/',$1,$3); }
+  | idexp                     { $$ = $1; }
+  | "(" exp ")"               { $$ = $2; }
+  | "number"                  { $$ = new NumberExprAST($1); }
+  | expif                     { $$ = $1; }
+  | blockexp                  { $$ = $1; }
+;
+
 
 blockexp:
-  "{" vardefs ";" exp "}" { $$ = new BlockExprAST($2,$4); }
-  | "{" exp "}"                      {                       /* NEW */
-        std::vector<VarBindingAST*> empty;                     /* NEW */
-        $$ = new BlockExprAST(empty, $2);                      /* NEW */
-      }
+  /* 1) se c’è almeno uno ‘;’ prima dell’ultima espressione, la
+       l’ultima viene usata come return-value */
+  "{" stmtlist ";" exp "}"
+    {
+      $$ = new BlockExprAST($2, $4);
+    }
+| /* 2) altrimenti singola espressione senza side‐effect */
+  "{" exp "}"
+    {
+      std::vector<RootAST*> empty;
+      $$ = new BlockExprAST(empty, $2);
+    }
+;
+
+
+
+
   
 vardefs:
   binding                 { std::vector<VarBindingAST*> definitions;
@@ -137,8 +183,7 @@ vardefs:
                             $$ = $1; }
                             
 binding:
-  "var" "id" "=" exp      { $$ = new VarBindingAST($2,$4); }
-                      
+   "var" IDENTIFIER "=" exp  { $$ = new VarBindingAST($2,$4); }                    
 expif:
   condexp "?" exp ":" exp { $$ = new IfExprAST($1,$3,$5); }
 

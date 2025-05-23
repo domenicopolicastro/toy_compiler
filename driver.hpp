@@ -11,6 +11,12 @@
 #include "llvm/IR/Module.h"
 #include "llvm/IR/Type.h"
 #include "llvm/IR/Verifier.h"
+#include "llvm/IR/GlobalVariable.h"
+
+extern llvm::LLVMContext *context;
+extern llvm::Module      *module;
+extern llvm::IRBuilder<> *builder;
+
 /**************** C++ modules and generic data types ***********************/
 #include <cstdio>
 #include <cstdlib>
@@ -22,6 +28,7 @@
 #include "parser.hpp"
 
 using namespace llvm;
+Value* LogErrorV(const std::string& Str);
 
 // Dichiarazione del prototipo yylex per Flex
 // Flex va proprio a cercare YY_DECL perché
@@ -62,6 +69,9 @@ public:
   virtual lexval getLexVal() const {return NONE;};
   virtual Value *codegen(driver& drv) { return nullptr; };
 };
+
+class GlobalDeclAST;
+class AssignExprAST;
 
 // Classe che rappresenta la sequenza di statement
 class SeqAST : public RootAST {
@@ -136,13 +146,16 @@ public:
 
 /// BlockExprAST
 class BlockExprAST : public ExprAST {
-private:
-  std::vector<VarBindingAST*> Def;
-  ExprAST* Val;
+  std::vector<RootAST*> Stmts;
+  ExprAST*            RetExpr;
 public:
-  BlockExprAST(std::vector<VarBindingAST*> Def, ExprAST* Val);
+  BlockExprAST(std::vector<RootAST*> Stmts,
+               ExprAST*            RetExpr)
+    : Stmts(std::move(Stmts)),
+      RetExpr(RetExpr)
+  {}
   Value *codegen(driver& drv) override;
-}; 
+};
 
 /// VarBindingAST
 class VarBindingAST: public RootAST {
@@ -183,5 +196,46 @@ public:
   FunctionAST(PrototypeAST* Proto, ExprAST* Body);
   Function *codegen(driver& drv) override;
 };
+
+/// GlobalDeclAST – dichiarazione di variabile globale “global x;”
+class GlobalDeclAST : public RootAST {
+  std::string Name;
+public:
+  GlobalDeclAST(const std::string &N) : Name(N) {}
+  Value *codegen(driver& drv) override {
+    // se non esiste ancora, ne creo una a 0.0
+    if (!module->getGlobalVariable(Name))
+      new GlobalVariable(
+        *module,
+        Type::getDoubleTy(*context),
+        false,
+        GlobalValue::ExternalLinkage,
+        ConstantFP::get(*context, APFloat(0.0)),
+        Name);
+    return nullptr;
+  }
+};
+class AssignExprAST : public ExprAST {
+  std::string LHS;
+  ExprAST *RHS;
+public:
+  AssignExprAST(const std::string &L, ExprAST *R) : LHS(L), RHS(R) {}
+  Value *codegen(driver& drv) override {
+    Value *V = RHS->codegen(drv);
+    if (!V) return nullptr;
+    // locale?
+    if (AllocaInst *A = drv.NamedValues[LHS]) {
+      builder->CreateStore(V, A);
+      return V;
+    }
+    // globale?
+    if (GlobalVariable *G = module->getGlobalVariable(LHS)) {
+      builder->CreateStore(V, G);
+      return V;
+    }
+    return LogErrorV("Variabile non definita: "+LHS);
+  }
+};
+
 
 #endif // ! DRIVER_HH
