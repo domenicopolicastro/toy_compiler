@@ -144,6 +144,19 @@ public:
   Value *codegen(driver& drv) override;
 };
 
+
+class ForExprAST : public ExprAST {
+private:
+    ExprAST* Start;
+    ExprAST* Cond;
+    ExprAST* Step;
+    ExprAST* Body;
+public:
+    ForExprAST(ExprAST* Start, ExprAST* Cond, ExprAST* Step, ExprAST* Body);
+    Value* codegen(driver& drv) override;
+};
+
+
 /// BlockExprAST
 class BlockExprAST : public ExprAST {
   std::vector<RootAST*> Stmts;

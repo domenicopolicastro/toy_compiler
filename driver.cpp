@@ -273,6 +273,66 @@ Value* IfExprAST::codegen(driver& drv) {
     return PN;
 };
 
+ForExprAST::ForExprAST(ExprAST* Start, ExprAST* Cond, ExprAST* Step, ExprAST* Body)
+    : Start(Start), Cond(Cond), Step(Step), Body(Body) {}
+
+/************************* For Expression Tree *************************/
+Value* ForExprAST::codegen(driver& drv) {
+    Function *TheFunction = builder->GetInsertBlock()->getParent();
+
+    // Generate code for the initialization expression.
+    if (Start) {
+        Start->codegen(drv);
+    }
+
+    // Create blocks for the loop header, body, and for code after the loop.
+    // Pass TheFunction as the parent to automatically add them to the function.
+    BasicBlock *LoopHeader = BasicBlock::Create(*context, "loop.header", TheFunction);
+    BasicBlock *LoopBody = BasicBlock::Create(*context, "loop.body", TheFunction);
+    BasicBlock *AfterLoop = BasicBlock::Create(*context, "after.loop", TheFunction);
+
+    // Jump into the loop header.
+    builder->CreateBr(LoopHeader);
+
+    // Start generating code in the loop header block.
+    builder->SetInsertPoint(LoopHeader);
+
+    // Generate the condition code.
+    Value *CondV = Cond->codegen(drv); // Questo produce un i1 per condizioni come "i < n"
+    if (!CondV)
+        return nullptr;
+
+    // NON è necessaria un'ulteriore conversione se CondV è già i1.
+    // La riga seguente era l'origine dell'errore e va rimossa o commentata:
+    // CondV = builder->CreateFCmpONE(CondV, ConstantFP::get(*context, APFloat(0.0)), "loop.cond");
+
+    // Create the conditional branch usando direttamente CondV (che è i1).
+    builder->CreateCondBr(CondV, LoopBody, AfterLoop);
+
+    // Set the insertion point to the loop body.
+    builder->SetInsertPoint(LoopBody);
+
+    // Generate the code for the body of the loop.
+    if (Body) {
+        Body->codegen(drv);
+    }
+
+    // Generate the step/increment code.
+    if (Step) {
+        Step->codegen(drv);
+    }
+
+    // After the body, jump back to the header to re-evaluate the condition.
+    builder->CreateBr(LoopHeader);
+
+    // Any new code will be added to the AfterLoop block.
+    builder->SetInsertPoint(AfterLoop);
+
+    // The 'for' loop expression evaluates to 0.0 (or null in some contexts for expressions).
+    // Ritorna un valore double per coerenza con le altre espressioni.
+    return ConstantFP::get(*context, APFloat(0.0));
+}
+
 /********************** Block Expression Tree *********************/
 // in driver.cpp
 

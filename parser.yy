@@ -46,7 +46,7 @@
   SLASH      "/"
   LPAREN     "("
   RPAREN     ")"
-  QMARK	     "?"
+  QMARK      "?"
   COLON      ":"
   LT         "<"
   EQ         "=="
@@ -57,14 +57,21 @@
   DEF        "def"
   VAR        "var"
   GLOBAL     "global"
+  FOR        "for"
 ;
 
 %token <std::string> IDENTIFIER "id"
 %token <double> NUMBER "number"
+
+/* --- INIZIO MODIFICHE IMPORTANTI --- */
+
+// Dichiarazioni dei tipi per i non-terminali
 %type <ExprAST*> exp
+%type <ExprAST*> simple_exp  // <-- AGGIUNTO: Dichiarazione per il nuovo simbolo
 %type <ExprAST*> idexp
 %type <ExprAST*> expif
-%type <ExprAST*> condexp
+%type <ExprAST*> forexpr
+%type <ExprAST*> blockexp
 %type <std::vector<ExprAST*>> optexp
 %type <std::vector<ExprAST*>> explist
 %type <RootAST*> program
@@ -73,11 +80,13 @@
 %type <PrototypeAST*> external
 %type <PrototypeAST*> proto
 %type <std::vector<std::string>> idseq
-%type <BlockExprAST*> blockexp
-%type <std::vector<VarBindingAST*>> vardefs
 %type <VarBindingAST*> binding
 %type <RootAST*> stmt
 %type <std::vector<RootAST*>> stmtlist
+// %type <ExprAST*> condexp   <-- RIMOSSO: Non più necessario
+// %type <std::vector<VarBindingAST*>> vardefs <-- RIMOSSO: Non utilizzato
+
+/* --- FINE MODIFICHE IMPORTANTI --- */
 
 
 %%
@@ -97,7 +106,6 @@ top:
   | GLOBAL IDENTIFIER        { $$ = new GlobalDeclAST($2); }
 ;
 
-
 definition:
   "def" proto exp       { $$ = new FunctionAST($2,$3); $2->noemit(); };
 
@@ -112,7 +120,9 @@ idseq:
                          $$ = args; }
 | "id" idseq            { $2.insert($2.begin(),$1); $$ = $2; };
 
+// Definizione della precedenza degli operatori
 %right ASSIGN;
+%right QMARK; // L'operatore ternario ha bassa precedenza
 %left ":";
 %left "<" "==";
 %left "+" "-";
@@ -139,57 +149,50 @@ stmtlist:
                             }
 ;
 
-
-
+/* --- INIZIO GRAMMATICA ESPRESSIONI CORRETTA (NON DUPLICATA) --- */
 
 exp:
     IDENTIFIER ASSIGN exp     { $$ = new AssignExprAST($1,$3); }
-  | exp "+" exp               { $$ = new BinaryExprAST('+',$1,$3); }
-  | exp "-" exp               { $$ = new BinaryExprAST('-',$1,$3); }
-  | exp "*" exp               { $$ = new BinaryExprAST('*',$1,$3); }
-  | exp "/" exp               { $$ = new BinaryExprAST('/',$1,$3); }
+  | simple_exp                { $$ = $1; }
+  | expif                     { $$ = $1; }
+;
+
+// simple_exp contiene le espressioni non ambigue
+simple_exp:
+    simple_exp "+" simple_exp { $$ = new BinaryExprAST('+',$1,$3); }
+  | simple_exp "-" simple_exp { $$ = new BinaryExprAST('-',$1,$3); }
+  | simple_exp "*" simple_exp { $$ = new BinaryExprAST('*',$1,$3); }
+  | simple_exp "/" simple_exp { $$ = new BinaryExprAST('/',$1,$3); }
+  | simple_exp "<" simple_exp { $$ = new BinaryExprAST('<',$1,$3); }
+  | simple_exp "==" simple_exp{ $$ = new BinaryExprAST('=',$1,$3); }
   | idexp                     { $$ = $1; }
   | "(" exp ")"               { $$ = $2; }
   | "number"                  { $$ = new NumberExprAST($1); }
-  | expif                     { $$ = $1; }
   | blockexp                  { $$ = $1; }
+  | forexpr                   { $$ = $1; }
 ;
 
-
 blockexp:
-  /* 1) se c’è almeno uno ‘;’ prima dell’ultima espressione, la
-       l’ultima viene usata come return-value */
   "{" stmtlist ";" exp "}"
     {
       $$ = new BlockExprAST($2, $4);
     }
-| /* 2) altrimenti singola espressione senza side‐effect */
-  "{" exp "}"
+| "{" exp "}"
     {
       std::vector<RootAST*> empty;
       $$ = new BlockExprAST(empty, $2);
     }
 ;
 
+forexpr:
+  "for" "(" exp ";" exp ";" exp ")" exp { $$ = new ForExprAST($3, $5, $7, $9); }
+;
 
-
-
-  
-vardefs:
-  binding                 { std::vector<VarBindingAST*> definitions;
-                            definitions.push_back($1);
-                            $$ = definitions; }
-| vardefs ";" binding     { $1.push_back($3);
-                            $$ = $1; }
-                            
 binding:
-   "var" IDENTIFIER "=" exp  { $$ = new VarBindingAST($2,$4); }                    
-expif:
-  condexp "?" exp ":" exp { $$ = new IfExprAST($1,$3,$5); }
+   "var" IDENTIFIER "=" exp  { $$ = new VarBindingAST($2,$4); }
 
-condexp:
-  exp "<" exp           { $$ = new BinaryExprAST('<',$1,$3); }
-| exp "==" exp          { $$ = new BinaryExprAST('=',$1,$3); }
+expif:
+  exp "?" exp ":" exp { $$ = new IfExprAST($1,$3,$5); }
 
 idexp:
   "id"                  { $$ = new VariableExprAST($1); }
@@ -197,20 +200,22 @@ idexp:
 
 optexp:
   %empty                { std::vector<ExprAST*> args;
-			 $$ = args; }
+                         $$ = args; }
 | explist               { $$ = $1; };
 
 explist:
   exp                   { std::vector<ExprAST*> args;
                          args.push_back($1);
-			 $$ = args;
+                         $$ = args;
                         }
 | exp "," explist       { $3.insert($3.begin(), $1); $$ = $3; };
+
+/* --- FINE GRAMMATICA ESPRESSIONI CORRETTA --- */
  
 %%
 
 void
 yy::parser::error (const location_type& l, const std::string& m)
 {
-  std::cerr << l << ": " << m << '\n';
+  std::cerr << l << ": " << m << '\\n';
 }
