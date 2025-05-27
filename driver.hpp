@@ -147,12 +147,16 @@ public:
 
 class ForExprAST : public ExprAST {
 private:
-    ExprAST* Start;
+    VarBindingAST* StartVar; // Per for (var i...
+    ExprAST* StartExpr;      // Per for (i=...
     ExprAST* Cond;
     ExprAST* Step;
     ExprAST* Body;
 public:
-    ForExprAST(ExprAST* Start, ExprAST* Cond, ExprAST* Step, ExprAST* Body);
+    // Questa è la dichiarazione del nuovo costruttore
+    ForExprAST(VarBindingAST* StartVar, ExprAST* StartExpr, ExprAST* Cond, 
+               ExprAST* Step, ExprAST* Body);
+    
     Value* codegen(driver& drv) override;
 };
 

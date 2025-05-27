@@ -188,7 +188,10 @@ blockexp:
 ;
 
 forexpr:
-  "for" "(" exp ";" exp ";" exp ")" exp { $$ = new ForExprAST($3, $5, $7, $9); }
+    // Nuova regola per: for (var i = 1; ... )
+    "for" "(" binding ";" exp ";" exp ")" exp { $$ = new ForExprAST($3, nullptr, $5, $7, $9); }
+    // Vecchia regola modificata per: for (i = 1; ... )
+  | "for" "(" exp ";" exp ";" exp ")" exp   { $$ = new ForExprAST(nullptr, $3, $5, $7, $9); }
 ;
 
 binding:
