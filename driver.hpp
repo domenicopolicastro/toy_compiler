@@ -156,6 +156,15 @@ public:
     Value* codegen(driver& drv) override;
 };
 
+class UnaryExprAST : public ExprAST {
+private:
+  char Op;
+  ExprAST* Operand;
+public:
+  UnaryExprAST(char Op, ExprAST* Operand);
+  Value *codegen(driver& drv) override;
+};
+
 
 /// BlockExprAST
 class BlockExprAST : public ExprAST {

@@ -510,3 +510,39 @@ Function *FunctionAST::codegen(driver& drv) {
   return nullptr;
 };
 
+UnaryExprAST::UnaryExprAST(char Op, ExprAST* Operand)
+    : Op(Op), Operand(Operand) {}
+
+Value* UnaryExprAST::codegen(driver& drv) {
+    // L'operando deve essere un l-value (una variabile).
+    // Proviamo a vedere se è una VariableExprAST.
+    VariableExprAST* varAST = dynamic_cast<VariableExprAST*>(Operand);
+    if (!varAST)
+        return LogErrorV("L'operando dell'operatore unario ++ deve essere una variabile");
+
+    // Ottieni il nome della variabile.
+    std::string varName = std::get<std::string>(varAST->getLexVal());
+    
+    // Cerca la variabile (prima locale, poi globale).
+    Value* varPtr = drv.NamedValues[varName];
+    if (!varPtr) {
+        varPtr = module->getGlobalVariable(varName);
+    }
+    if (!varPtr) {
+        return LogErrorV("Variabile non definita: " + varName);
+    }
+
+    // Carica il valore attuale della variabile.
+    Value* oldVal = builder->CreateLoad(Type::getDoubleTy(*context), varPtr, varName.c_str());
+    if (!oldVal)
+        return nullptr;
+
+    // Aggiungi 1.0 al valore.
+    Value* newVal = builder->CreateFAdd(oldVal, ConstantFP::get(*context, APFloat(1.0)), "incrtmp");
+
+    // Salva il nuovo valore nella variabile.
+    builder->CreateStore(newVal, varPtr);
+
+    // L'espressione di pre-incremento restituisce il nuovo valore.
+    return newVal;
+}

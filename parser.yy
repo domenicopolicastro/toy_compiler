@@ -58,6 +58,7 @@
   VAR        "var"
   GLOBAL     "global"
   FOR        "for"
+  PLUSPLUS   "++"
 ;
 
 %token <std::string> IDENTIFIER "id"
@@ -124,6 +125,7 @@ idseq:
 %right ASSIGN;
 %right QMARK; // L'operatore ternario ha bassa precedenza
 %left ":";
+%right PLUSPLUS;  
 %left "<" "==";
 %left "+" "-";
 %left "*" "/";
@@ -159,7 +161,8 @@ exp:
 
 // simple_exp contiene le espressioni non ambigue
 simple_exp:
-    simple_exp "+" simple_exp { $$ = new BinaryExprAST('+',$1,$3); }
+  PLUSPLUS simple_exp      { $$ = new UnaryExprAST('+', $2); }
+  | simple_exp "+" simple_exp { $$ = new BinaryExprAST('+',$1,$3); }
   | simple_exp "-" simple_exp { $$ = new BinaryExprAST('-',$1,$3); }
   | simple_exp "*" simple_exp { $$ = new BinaryExprAST('*',$1,$3); }
   | simple_exp "/" simple_exp { $$ = new BinaryExprAST('/',$1,$3); }
