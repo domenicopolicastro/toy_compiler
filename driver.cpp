@@ -516,36 +516,95 @@ Function *FunctionAST::codegen(driver& drv) {
 UnaryExprAST::UnaryExprAST(char Op, ExprAST* Operand)
     : Op(Op), Operand(Operand) {}
 
+// In driver.cpp
+
 Value* UnaryExprAST::codegen(driver& drv) {
-    // L'operando deve essere un l-value (una variabile).
-    // Proviamo a vedere se è una VariableExprAST.
-    VariableExprAST* varAST = dynamic_cast<VariableExprAST*>(Operand);
-    if (!varAST)
-        return LogErrorV("L'operando dell'operatore unario ++ deve essere una variabile");
+    switch (Op) {
+        case '+': { // Gestione del PRE-INCREMENTO '++' (già implementato)
+            VariableExprAST* varAST = dynamic_cast<VariableExprAST*>(Operand);
+            if (!varAST)
+                return LogErrorV("L'operando dell'operatore unario ++ deve essere una variabile");
 
-    // Ottieni il nome della variabile.
-    std::string varName = std::get<std::string>(varAST->getLexVal());
-    
-    // Cerca la variabile (prima locale, poi globale).
-    Value* varPtr = drv.NamedValues[varName];
-    if (!varPtr) {
-        varPtr = module->getGlobalVariable(varName);
-    }
-    if (!varPtr) {
-        return LogErrorV("Variabile non definita: " + varName);
-    }
+            std::string varName = std::get<std::string>(varAST->getLexVal());
+            Value* varPtr = drv.NamedValues[varName];
+            if (!varPtr) {
+                varPtr = module->getGlobalVariable(varName);
+            }
+            if (!varPtr) {
+                return LogErrorV("Variabile non definita per '++': " + varName);
+            }
 
-    // Carica il valore attuale della variabile.
-    Value* oldVal = builder->CreateLoad(Type::getDoubleTy(*context), varPtr, varName.c_str());
-    if (!oldVal)
+            Value* oldVal = builder->CreateLoad(Type::getDoubleTy(*context), varPtr, varName.c_str());
+            if (!oldVal) return nullptr;
+
+            Value* newVal = builder->CreateFAdd(oldVal, ConstantFP::get(*context, APFloat(1.0)), "incrtmp");
+            builder->CreateStore(newVal, varPtr);
+            return newVal;
+        }
+
+        case '-': { // NUOVA GESTIONE per il MENO UNARIO '-'
+            // A differenza di '++', la negazione può applicarsi a qualsiasi espressione (es. -(a+b)).
+            Value* operandV = Operand->codegen(drv);
+            if (!operandV)
+                return nullptr;
+            
+            // Crea l'istruzione LLVM per la negazione floating-point (fneg).
+            return builder->CreateFNeg(operandV, "negtmp");
+        }
+
+        default:
+            return LogErrorV("Operatore unario sconosciuto");
+    }
+}
+
+IfStmtAST::IfStmtAST(ExprAST* Cond, BlockExprAST* Then, BlockExprAST* Else)
+    : Cond(Cond), Then(Then), Else(Else) {}
+
+// Implementazione del codegen
+Value* IfStmtAST::codegen(driver& drv) {
+    Value* CondV = Cond->codegen(drv);
+    if (!CondV)
         return nullptr;
+    
+    Function *TheFunction = builder->GetInsertBlock()->getParent();
 
-    // Aggiungi 1.0 al valore.
-    Value* newVal = builder->CreateFAdd(oldVal, ConstantFP::get(*context, APFloat(1.0)), "incrtmp");
+    // Crea i blocchi per i rami 'then' ed 'else'.
+    BasicBlock *ThenBB = BasicBlock::Create(*context, "then", TheFunction);
+    BasicBlock *ElseBB = BasicBlock::Create(*context, "else");
+    BasicBlock *MergeBB = BasicBlock::Create(*context, "ifcont");
 
-    // Salva il nuovo valore nella variabile.
-    builder->CreateStore(newVal, varPtr);
+    if (Else) {
+        // Se c'è un blocco 'else', salta a ThenBB o a ElseBB
+        builder->CreateCondBr(CondV, ThenBB, ElseBB);
+    } else {
+        // Altrimenti, salta a ThenBB o direttamente dopo l'if (MergeBB)
+        builder->CreateCondBr(CondV, ThenBB, MergeBB);
+    }
 
-    // L'espressione di pre-incremento restituisce il nuovo valore.
-    return newVal;
+    // Genera il codice per il blocco 'then'
+    builder->SetInsertPoint(ThenBB);
+    Value *ThenV = Then->codegen(drv);
+    if (!ThenV) return nullptr;
+    builder->CreateBr(MergeBB); // Salta al blocco di continuazione
+
+    // Il blocco 'then' potrebbe aver creato altri blocchi, quindi aggiorniamo ThenBB
+    // per il PHI node, anche se qui non lo usiamo, è buona norma.
+    ThenBB = builder->GetInsertBlock();
+
+    // Genera il codice per il blocco 'else', se esiste
+    if (Else) {
+        TheFunction->insert(TheFunction->end(), ElseBB);
+        builder->SetInsertPoint(ElseBB);
+        Value* ElseV = Else->codegen(drv);
+        if (!ElseV) return nullptr;
+        builder->CreateBr(MergeBB);
+        ElseBB = builder->GetInsertBlock();
+    }
+    
+    // Inserisci il blocco di continuazione
+    TheFunction->insert(TheFunction->end(), MergeBB);
+    builder->SetInsertPoint(MergeBB);
+    
+    // Un if-statement non produce un valore, quindi ritorniamo un valore nullo o costante.
+    return Constant::getNullValue(Type::getDoubleTy(*context));
 }

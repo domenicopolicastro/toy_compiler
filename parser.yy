@@ -59,6 +59,8 @@
   GLOBAL     "global"
   FOR        "for"
   PLUSPLUS   "++"
+  IF         "if"     
+  ELSE       "else"
 ;
 
 %token <std::string> IDENTIFIER "id"
@@ -83,6 +85,7 @@
 %type <std::vector<std::string>> idseq
 %type <VarBindingAST*> binding
 %type <RootAST*> stmt
+%type <RootAST*> ifstmt
 %type <std::vector<RootAST*>> stmtlist
 // %type <ExprAST*> condexp   <-- RIMOSSO: Non più necessario
 // %type <std::vector<VarBindingAST*>> vardefs <-- RIMOSSO: Non utilizzato
@@ -125,6 +128,7 @@ idseq:
 %right ASSIGN;
 %right QMARK; // L'operatore ternario ha bassa precedenza
 %left ":";
+%right UMINUS;
 %right PLUSPLUS;  
 %left "<" "==";
 %left "+" "-";
@@ -137,7 +141,18 @@ idseq:
        { $$ = (RootAST*) new AssignExprAST($1,$3); }
    | exp
        { $$ = (RootAST*)$1; }
+   | ifstmt                  
+      { $$ = $1; }
  ;
+
+ifstmt:
+    IF "(" exp ")" blockexp { 
+        $$ = new IfStmtAST($3, (BlockExprAST*)$5, nullptr); 
+    }
+  | IF "(" exp ")" blockexp ELSE blockexp { 
+        $$ = new IfStmtAST($3, (BlockExprAST*)$5, (BlockExprAST*)$7); 
+    }
+;
 
 stmtlist:
     /* empty */            %empty
@@ -161,7 +176,8 @@ exp:
 
 // simple_exp contiene le espressioni non ambigue
 simple_exp:
-  PLUSPLUS simple_exp      { $$ = new UnaryExprAST('+', $2); }
+  MINUS simple_exp %prec UMINUS { $$ = new UnaryExprAST('-', $2); }
+  | PLUSPLUS simple_exp      { $$ = new UnaryExprAST('+', $2); }
   | simple_exp "+" simple_exp { $$ = new BinaryExprAST('+',$1,$3); }
   | simple_exp "-" simple_exp { $$ = new BinaryExprAST('-',$1,$3); }
   | simple_exp "*" simple_exp { $$ = new BinaryExprAST('*',$1,$3); }
@@ -176,14 +192,22 @@ simple_exp:
 ;
 
 blockexp:
+  /* 1) Blocco con valore di ritorno esplicito */
   "{" stmtlist ";" exp "}"
     {
       $$ = new BlockExprAST($2, $4);
     }
-| "{" exp "}"
+| /* 2) Blocco con una singola espressione come valore di ritorno */
+  "{" exp "}"
     {
       std::vector<RootAST*> empty;
       $$ = new BlockExprAST(empty, $2);
+    }
+| /* 3) Blocco con solo statement (valore di ritorno di default 0.0) */
+  "{" stmtlist "}"      // <-- AGGIUNGI QUESTA NUOVA REGOLA
+    {
+      // Crea un NumberExprAST(0.0) come espressione di ritorno di default
+      $$ = new BlockExprAST($2, new NumberExprAST(0.0));
     }
 ;
 
