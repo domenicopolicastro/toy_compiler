@@ -269,5 +269,20 @@ public:
   }
 };
 
+class ArrayAccessExprAST : public ExprAST {
+private:
+  std::string ArrayName;
+  ExprAST* IndexExpr;
+
+public:
+  ArrayAccessExprAST(const std::string &arrayName, ExprAST* indexExpr)
+    : ArrayName(arrayName), IndexExpr(indexExpr) {}
+
+  const std::string& getArrayName() const { return ArrayName; } // Utile per il debug o info
+  ExprAST* getIndexExpr() const { return IndexExpr; }
+
+  Value *codegen(driver& drv) override;
+};
+
 
 #endif // ! DRIVER_HH

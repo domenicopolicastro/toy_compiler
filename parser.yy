@@ -209,6 +209,7 @@ simple_exp:
   | idexp                     { $$ = $1; }
   | "(" exp ")"               { $$ = $2; }
   | "number"                  { $$ = new NumberExprAST($1); }
+  | INTEGER                   { $$ = new NumberExprAST(static_cast<double>($1)); }
   | blockexp                  { $$ = $1; }
   | forexpr                   { $$ = $1; }
 ;
@@ -249,6 +250,9 @@ expif:
 idexp:
   "id"                  { $$ = new VariableExprAST($1); }
 | "id" "(" optexp ")"   { $$ = new CallExprAST($1,$3); };
+| IDENTIFIER LBRACKET exp RBRACKET { // <-- NUOVA REGOLA PER ACCESSO ARRAY
+      $$ = new ArrayAccessExprAST($1, $3); 
+  }
 
 optexp:
   %empty                { std::vector<ExprAST*> args;

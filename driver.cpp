@@ -742,3 +742,49 @@ Value* GlobalDeclAST::codegen(driver& drv) {
     }
     return nullptr; // Non dovrebbe mai essere raggiunto
 }
+Value* ArrayAccessExprAST::codegen(driver& drv) {
+    // 1. Trova il puntatore all'array globale.
+    GlobalVariable* arrayVar = module->getGlobalVariable(ArrayName);
+    if (!arrayVar) {
+        return LogErrorV("Array globale non definito: " + ArrayName);
+    }
+
+    // Verifica che sia effettivamente un puntatore a un tipo array.
+    // Il tipo di una GlobalVariable è un PointerType al tipo della variabile.
+    // Quindi arrayVar->getValueType() ci dà il tipo dell'array (es. [10 x double]).
+    if (!arrayVar->getValueType()->isArrayTy()) {
+        return LogErrorV(ArrayName + " non è un array globale.");
+    }
+    // ArrayType* arrayTy = cast<ArrayType>(arrayVar->getValueType()); // Utile se serve la dimensione
+
+    // 2. Valuta l'espressione dell'indice.
+    Value* indexVal = IndexExpr->codegen(drv);
+    if (!indexVal) {
+        return nullptr;
+    }
+
+    // L'indice dovrebbe essere un intero. LLVM GEP si aspetta i64 per gli indici.
+    // Il nostro linguaggio usa double per tutto, quindi dobbiamo convertire l'indice
+    // da double a i64. Attenzione: questo tronca la parte frazionaria.
+    // Sarebbe meglio avere un tipo intero nel linguaggio per gli indici.
+    // Per ora, facciamo fptosi (floating point to signed integer).
+    Value* indexInt = builder->CreateFPToSI(indexVal, Type::getInt64Ty(*context), "indexcast");
+
+    // 3. Prepara gli indici per l'istruzione GEP (GetElementPtr).
+    // Per un array globale come @A = global [10 x double], ...
+    // un GEP per accedere a A[i] necessita di due indici:
+    //   - Il primo indice (0) dereferenzia il puntatore globale per ottenere l'array stesso.
+    //   - Il secondo indice (indexInt) seleziona l'elemento nell'array.
+    std::vector<Value*> indices;
+    indices.push_back(ConstantInt::get(Type::getInt64Ty(*context), 0)); // Indice per il puntatore globale
+    indices.push_back(indexInt);                                       // Indice per l'elemento dell'array
+
+    // 4. Genera l'istruzione GEP per ottenere il puntatore all'elemento.
+    //    arrayVar è già un pointer type, quindi il primo argomento di CreateGEP è il tipo PUNTATO da arrayVar,
+    //    cioè il tipo dell'array stesso (es. [10 x double]).
+    Value* elemPtr = builder->CreateGEP(arrayVar->getValueType(), arrayVar, indices, "arrayidx");
+
+    // 5. Carica il valore dall'indirizzo dell'elemento.
+    //    Il tipo da caricare è il tipo dell'elemento dell'array, che è double.
+    return builder->CreateLoad(Type::getDoubleTy(*context), elemPtr, "loadtmp");
+}
