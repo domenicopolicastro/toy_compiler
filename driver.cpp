@@ -126,63 +126,113 @@ BinaryExprAST::BinaryExprAST(char Op, ExprAST* LHS, ExprAST* RHS):
 // Vengono ricorsivamente generati il codice per il primo e quello per il secondo
 // operando. Con i valori memorizzati in altrettanti registri SSA si
 // costruisce l'istruzione utilizzando l'opportuno operatore
+
 // In driver.cpp
 
 Value *BinaryExprAST::codegen(driver& drv) {
-  // Caso speciale per 'or' (e in futuro 'and') per via dello short-circuiting
-  if (Op == 'o') {
+  if (Op == 'a') { // Gestione di 'and' con short-circuiting
       Value *L = LHS->codegen(drv);
       if (!L) return nullptr;
 
-      L = builder->CreateFCmpONE(L, ConstantFP::get(*context, APFloat(0.0)), "tobool");
+      // Converti LHS in booleano i1 (true se L != 0.0)
+      L = builder->CreateFCmpONE(L, ConstantFP::get(*context, APFloat(0.0)), "tobool_l_and");
+      
+      Function *TheFunction = builder->GetInsertBlock()->getParent();
+      
+      // Blocco per valutare RHS (solo se LHS è true)
+      BasicBlock *RHSBlock = BasicBlock::Create(*context, "rhs_and", TheFunction);
+      // Blocco dove il risultato di 'and' viene finalizzato
+      BasicBlock *MergeBlock = BasicBlock::Create(*context, "and_cont", TheFunction);
+
+      // Blocco corrente prima del branch (dove LHS è stato valutato)
+      BasicBlock *LHSBlock = builder->GetInsertBlock();
+      // Se L è true (1), vai a RHSBlock per valutare RHS.
+      // Se L è false (0), il risultato di 'and' è false, salta direttamente a MergeBlock.
+      builder->CreateCondBr(L, RHSBlock, MergeBlock);
+
+      // Codice per il blocco RHSBlock
+      builder->SetInsertPoint(RHSBlock);
+      Value *R = RHS->codegen(drv); // Valuta RHS
+      if (!R) return nullptr;
+      // Converti RHS in booleano i1
+      R = builder->CreateFCmpONE(R, ConstantFP::get(*context, APFloat(0.0)), "tobool_r_and");
+      builder->CreateBr(MergeBlock); // Salta al blocco di merge
+      // Aggiorna RHSBlock per il PHI node (è il blocco da cui arriviamo se RHS è stato valutato)
+      RHSBlock = builder->GetInsertBlock();
+
+      // Codice per il blocco MergeBlock
+      builder->SetInsertPoint(MergeBlock);
+      PHINode *PN = builder->CreatePHI(Type::getInt1Ty(*context), 2, "and_phi");
+      // Se arriviamo da LHSBlock (significa che L era false), il risultato di 'and' è false (0).
+      PN->addIncoming(ConstantInt::get(Type::getInt1Ty(*context), 0), LHSBlock);
+      // Se arriviamo da RHSBlock (significa che L era true), il risultato di 'and' è il valore di R.
+      PN->addIncoming(R, RHSBlock);
+      
+      // Converti il risultato booleano (i1) in double (0.0 o 1.0)
+      return builder->CreateUIToFP(PN, Type::getDoubleTy(*context), "bool_to_double");
+
+  } else if (Op == 'o') { // Gestione di 'or' con short-circuiting (codice esistente, verificato)
+      Value *L = LHS->codegen(drv);
+      if (!L) return nullptr;
+
+      // Converti LHS in booleano i1 (true se L != 0.0)
+      L = builder->CreateFCmpONE(L, ConstantFP::get(*context, APFloat(0.0)), "tobool_l_or");
       
       Function *TheFunction = builder->GetInsertBlock()->getParent();
       
       BasicBlock *RHSBlock = BasicBlock::Create(*context, "rhs_or", TheFunction);
-      // --- CORREZIONE QUI ---
-      // Ora anche MergeBlock viene creato e aggiunto a TheFunction.
       BasicBlock *MergeBlock = BasicBlock::Create(*context, "or_cont", TheFunction);
 
       BasicBlock *LHSBlock = builder->GetInsertBlock();
+      // Se L è true (1), il risultato di 'or' è true, salta direttamente a MergeBlock.
+      // Se L è false (0), vai a RHSBlock per valutare RHS.
       builder->CreateCondBr(L, MergeBlock, RHSBlock);
 
       builder->SetInsertPoint(RHSBlock);
       Value *R = RHS->codegen(drv);
       if (!R) return nullptr;
-      R = builder->CreateFCmpONE(R, ConstantFP::get(*context, APFloat(0.0)), "tobool");
+      // Converti RHS in booleano i1
+      R = builder->CreateFCmpONE(R, ConstantFP::get(*context, APFloat(0.0)), "tobool_r_or");
       builder->CreateBr(MergeBlock);
       RHSBlock = builder->GetInsertBlock();
 
       builder->SetInsertPoint(MergeBlock);
       PHINode *PN = builder->CreatePHI(Type::getInt1Ty(*context), 2, "or_phi");
+      // Se arriviamo da LHSBlock (significa che L era true), il risultato di 'or' è true (1).
       PN->addIncoming(ConstantInt::get(Type::getInt1Ty(*context), 1), LHSBlock);
+      // Se arriviamo da RHSBlock (significa che L era false), il risultato di 'or' è il valore di R.
       PN->addIncoming(R, RHSBlock);
       
+      // Converti il risultato booleano (i1) in double (0.0 o 1.0)
       return builder->CreateUIToFP(PN, Type::getDoubleTy(*context), "bool_to_double");
   }
 
-  // Codice esistente per tutti gli altri operatori binari
+  // Codice per tutti gli altri operatori binari (aritmetici e di comparazione)
+  // Questi vengono valutati solo se Op non è 'a' (and) o 'o' (or)
   Value *L = LHS->codegen(drv);
-  Value *R = RHS->codegen(drv);
-  if (!L || !R) 
+  Value *R_val = RHS->codegen(drv); // Rinominato R in R_val per evitare shadowing con la R nei blocchi 'and'/'or'
+  if (!L || !R_val) 
      return nullptr;
+
   switch (Op) {
   case '+':
-    return builder->CreateFAdd(L,R,"addres");
+    return builder->CreateFAdd(L,R_val,"addres");
   case '-':
-    return builder->CreateFSub(L,R,"subres");
+    return builder->CreateFSub(L,R_val,"subres");
   case '*':
-    return builder->CreateFMul(L,R,"mulres");
+    return builder->CreateFMul(L,R_val,"mulres");
   case '/':
-    return builder->CreateFDiv(L,R,"addres");
+    return builder->CreateFDiv(L,R_val,"addres");
   case '<':
-    L = builder->CreateFCmpULT(L,R,"cmptmp");
+    L = builder->CreateFCmpULT(L,R_val,"cmptmp");
+    // Converti il risultato booleano (i1) in double (0.0 o 1.0)
     return builder->CreateUIToFP(L, Type::getDoubleTy(*context), "booltmp");
-  case '=':
-    L = builder->CreateFCmpUEQ(L,R,"cmptmp");
+  case '=': // Assumendo che '=' sia per '==' come da token EQ
+    L = builder->CreateFCmpUEQ(L,R_val,"cmptmp");
+    // Converti il risultato booleano (i1) in double (0.0 o 1.0)
     return builder->CreateUIToFP(L, Type::getDoubleTy(*context), "booltmp");
   default:  
-    return LogErrorV("Operatore binario non supportato");
+    return LogErrorV("Operatore binario non supportato: " + std::string(1, Op));
   }
 };
 
@@ -515,34 +565,42 @@ Function *FunctionAST::codegen(driver& drv) {
 UnaryExprAST::UnaryExprAST(char Op, ExprAST* Operand)
     : Op(Op), Operand(Operand) {}
 
-// In driver.cpp
-
+// In driver.cpp - UnaryExprAST::codegen
 Value* UnaryExprAST::codegen(driver& drv) {
     switch (Op) {
-        case '+': { // Gestione del PRE-INCREMENTO '++' (già implementato)
+        case '+': { // Gestione del PRE-INCREMENTO '++'
+            // L'operando di '++' deve essere una variabile (un l-value).
             VariableExprAST* varAST = dynamic_cast<VariableExprAST*>(Operand);
             if (!varAST)
                 return LogErrorV("L'operando dell'operatore unario ++ deve essere una variabile");
 
             std::string varName = std::get<std::string>(varAST->getLexVal());
-            Value* varPtr = drv.NamedValues[varName];
+            
+            // Cerca il puntatore alla variabile (prima locale, poi globale).
+            Value* varPtr = drv.NamedValues[varName]; // Prova locali
             if (!varPtr) {
-                varPtr = module->getGlobalVariable(varName);
+                varPtr = module->getGlobalVariable(varName); // Prova globali
             }
             if (!varPtr) {
                 return LogErrorV("Variabile non definita per '++': " + varName);
             }
 
+            // Carica il valore attuale della variabile.
             Value* oldVal = builder->CreateLoad(Type::getDoubleTy(*context), varPtr, varName.c_str());
             if (!oldVal) return nullptr;
 
+            // Aggiungi 1.0 al valore.
             Value* newVal = builder->CreateFAdd(oldVal, ConstantFP::get(*context, APFloat(1.0)), "incrtmp");
+
+            // Salva il nuovo valore nella variabile.
             builder->CreateStore(newVal, varPtr);
+
+            // L'espressione di pre-incremento restituisce il nuovo valore.
             return newVal;
         }
 
-        case '-': { // NUOVA GESTIONE per il MENO UNARIO '-'
-            // A differenza di '++', la negazione può applicarsi a qualsiasi espressione (es. -(a+b)).
+        case '-': { // Gestione del MENO UNARIO '-'
+            // La negazione può applicarsi a qualsiasi espressione che restituisce un valore.
             Value* operandV = Operand->codegen(drv);
             if (!operandV)
                 return nullptr;
@@ -551,8 +609,25 @@ Value* UnaryExprAST::codegen(driver& drv) {
             return builder->CreateFNeg(operandV, "negtmp");
         }
 
+        case '!': { // Gestione della NEGAZIONE LOGICA 'not'
+            Value* operandV = Operand->codegen(drv);
+            if (!operandV) return nullptr;
+
+            // 1. Converti l'operando double (0.0 per false, !=0.0 per true) in un booleano i1.
+            //    Un valore è "true" se è diverso da 0.0.
+            Value* operand_i1 = builder->CreateFCmpONE(operandV, ConstantFP::get(*context, APFloat(0.0)), "tobool_not_arg");
+            
+            // 2. Nega il valore i1. Ci sono vari modi, ad esempio:
+            //    - not X  è equivalente a  X == false (icmp eq i1 X, 0)
+            //    - not X è equivalente a X xor true (xor i1 X, 1)
+            Value* not_i1 = builder->CreateICmpEQ(operand_i1, ConstantInt::get(Type::getInt1Ty(*context), 0), "not_res_i1");
+            
+            // 3. Riconverti il risultato booleano i1 in double (0.0 o 1.0) per coerenza con il linguaggio.
+            return builder->CreateUIToFP(not_i1, Type::getDoubleTy(*context), "bool_to_double_not");
+        }
+
         default:
-            return LogErrorV("Operatore unario sconosciuto");
+            return LogErrorV("Operatore unario sconosciuto: " + std::string(1, Op));
     }
 }
 

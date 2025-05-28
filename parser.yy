@@ -62,6 +62,8 @@
   IF         "if"     
   ELSE       "else"
   OR         "or"
+  AND        "and"    
+  NOT        "not"
 ;
 
 %token <std::string> IDENTIFIER "id"
@@ -130,7 +132,8 @@ idseq:
 %right QMARK; // L'operatore ternario ha bassa precedenza
 %left ":";
 %left OR;
-%right UMINUS;
+%left AND;
+%right UMINUS NOT;
 %right PLUSPLUS;  
 %left "<" "==";
 %left "+" "-";
@@ -178,7 +181,8 @@ exp:
 
 // simple_exp contiene le espressioni non ambigue
 simple_exp:
-  MINUS simple_exp %prec UMINUS { $$ = new UnaryExprAST('-', $2); }
+  NOT simple_exp %prec NOT    { $$ = new UnaryExprAST('!', $2); }
+  | MINUS simple_exp %prec UMINUS { $$ = new UnaryExprAST('-', $2); }
   | PLUSPLUS simple_exp      { $$ = new UnaryExprAST('+', $2); }
   | simple_exp "+" simple_exp { $$ = new BinaryExprAST('+',$1,$3); }
   | simple_exp "-" simple_exp { $$ = new BinaryExprAST('-',$1,$3); }
@@ -186,6 +190,7 @@ simple_exp:
   | simple_exp "/" simple_exp { $$ = new BinaryExprAST('/',$1,$3); }
   | simple_exp "<" simple_exp { $$ = new BinaryExprAST('<',$1,$3); }
   | simple_exp "==" simple_exp{ $$ = new BinaryExprAST('=',$1,$3); }
+  | simple_exp AND simple_exp  { $$ = new BinaryExprAST('a', $1, $3); }
   | simple_exp OR simple_exp    { $$ = new BinaryExprAST('o', $1, $3); }
   | idexp                     { $$ = $1; }
   | "(" exp ")"               { $$ = $2; }
