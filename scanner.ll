@@ -11,8 +11,9 @@
 %option noyywrap nounput batch debug noinput
 
 id      [a-zA-Z][a-zA-Z_0-9]*
+integer [0-9]+
 fpnum   [0-9]*\.?[0-9]+([eE][-+]?[0-9]+)?
-fixnum  (0|[1-9][0-9]*)\.?[0-9]*
+fixnum  ({integer})\\.?[0-9]*
 num     {fpnum}|{fixnum}
 blank   [ \t]
 
@@ -48,8 +49,21 @@ blank   [ \t]
 "="      return yy::parser::make_ASSIGN    (loc);
 "{"      return yy::parser::make_LBRACE    (loc);
 "}"      return yy::parser::make_RBRACE    (loc);
+"["      return yy::parser::make_LBRACKET  (loc);
+"]"      return yy::parser::make_RBRACKET  (loc);
 
 "++"     return yy::parser::make_PLUSPLUS  (loc);
+
+{integer} { 
+           errno = 0;
+           long intval = strtol(yytext, NULL, 10);
+           if ((errno == ERANGE && (intval == LONG_MAX || intval == LONG_MIN)) || (errno != 0 && intval == 0)) {
+               throw yy::parser::syntax_error(loc, "Integer value out of range: " + std::string(yytext));
+           }
+           // Controlla che sia un intero positivo per le dimensioni dell'array (lo faremo nel parser)
+           return yy::parser::make_INTEGER(static_cast<long long>(intval), loc); // Usiamo long long per flessibilità
+         }
+
 
 {num}    { errno = 0;
            double n = strtod(yytext, NULL);
@@ -58,7 +72,8 @@ blank   [ \t]
                       + std::string(yytext));
            return yy::parser::make_NUMBER(n, loc);
          }
-         
+
+
 "def"    { return yy::parser::make_DEF(loc); }
 "extern" { return yy::parser::make_EXTERN(loc); }
 "var"    { return yy::parser::make_VAR(loc); }

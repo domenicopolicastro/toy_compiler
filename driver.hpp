@@ -232,23 +232,20 @@ public:
   Function *codegen(driver& drv) override;
 };
 
-/// GlobalDeclAST – dichiarazione di variabile globale “global x;”
+
 class GlobalDeclAST : public RootAST {
   std::string Name;
+  int ArraySize; // 0 o valore negativo se non è un array, >0 se è un array
+
 public:
-  GlobalDeclAST(const std::string &N) : Name(N) {}
-  Value *codegen(driver& drv) override {
-    // se non esiste ancora, ne creo una a 0.0
-    if (!module->getGlobalVariable(Name))
-      new GlobalVariable(
-        *module,
-        Type::getDoubleTy(*context),
-        false,
-        GlobalValue::ExternalLinkage,
-        ConstantFP::get(*context, APFloat(0.0)),
-        Name);
-    return nullptr;
-  }
+  // Costruttore modificato
+  GlobalDeclAST(const std::string &N, int size = 0) : Name(N), ArraySize(size) {}
+  
+  bool isArray() const { return ArraySize > 0; }
+  int getArraySize() const { return ArraySize; }
+  const std::string& getName() const { return Name; }
+
+  Value *codegen(driver& drv) override; // Il codegen dovrà essere modificato
 };
 class AssignExprAST : public ExprAST {
   std::string LHS;

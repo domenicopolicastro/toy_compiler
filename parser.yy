@@ -64,10 +64,13 @@
   OR         "or"
   AND        "and"    
   NOT        "not"
+  LBRACKET   "["      
+  RBRACKET   "]"
 ;
 
 %token <std::string> IDENTIFIER "id"
 %token <double> NUMBER "number"
+%token <long long> INTEGER "integer"
 
 /* --- INIZIO MODIFICHE IMPORTANTI --- */
 
@@ -110,7 +113,18 @@ top:
     %empty                   { $$ = nullptr; }
   | definition               { $$ = $1; }
   | external                 { $$ = $1; }
-  | GLOBAL IDENTIFIER        { $$ = new GlobalDeclAST($2); }
+  // Modifica questa sezione per GLOBAL
+  | GLOBAL IDENTIFIER { // Variabile globale scalare
+        // Passiamo size 0 o -1 per indicare che non è un array, o un flag booleano
+        $$ = new GlobalDeclAST($2, 0); // Assumiamo che GlobalDeclAST ora prenda una dimensione
+    }
+  | GLOBAL IDENTIFIER LBRACKET INTEGER RBRACKET { // Array globale
+        if ($4 <= 0) { // Controllo sulla dimensione dell'array
+            yy::parser::error(drv.location, "La dimensione dell'array deve essere positiva.");
+            YYERROR; // Segnala un errore di parsing
+        }
+        $$ = new GlobalDeclAST($2, static_cast<int>($4)); // Passa la dimensione
+    }
 ;
 
 definition:

@@ -683,3 +683,62 @@ Value* IfStmtAST::codegen(driver& drv) {
     // Un if-statement non produce un valore, quindi ritorniamo un valore nullo o costante.
     return Constant::getNullValue(Type::getDoubleTy(*context));
 }
+// In driver.cpp
+
+// Se avevi una definizione separata del costruttore GlobalDeclAST in driver.cpp, 
+// assicurati che corrisponda a quella in driver.hpp:
+// GlobalDeclAST::GlobalDeclAST(const std::string &N, int size) : Name(N), ArraySize(size) {}
+// Ma di solito è definita inline nell'header, come ho suggerito sopra.
+
+Value* GlobalDeclAST::codegen(driver& drv) {
+    // Controlla se la variabile globale esiste già per evitare ridefinizioni problematiche.
+    // In LLVM, una variabile globale può essere dichiarata più volte se ha linkage 'common'
+    // o se le dichiarazioni successive sono solo 'declarations' e non 'definitions'.
+    // Per semplicità, se esiste già, restituiamo il puntatore esistente.
+    if (GlobalVariable *ExistingGV = module->getGlobalVariable(Name)) {
+        // Potresti voler verificare che il tipo e la dimensione corrispondano se è già definita,
+        // ma per ora questo è sufficiente per evitare errori di linkage.
+        return ExistingGV; 
+    }
+
+    if (isArray()) { // È un array
+        // 1. Definisci il tipo dell'array: ArrayType::get(elementType, numElements)
+        //    elementType è double, numElements è ArraySize.
+        ArrayType* arrayTy = ArrayType::get(Type::getDoubleTy(*context), ArraySize);
+        
+        // 2. Crea l'inizializzatore. Per un array globale, di solito lo si inizializza a zero.
+        //    ConstantAggregateZero::get(ArrayType*) crea un inizializzatore zero per l'array.
+        Constant* Initializer = ConstantAggregateZero::get(arrayTy);
+        
+        // 3. Crea la GlobalVariable per l'array.
+        //    Usiamo CommonLinkage: se più file .k definiscono lo stesso array globale,
+        //    il linker ne sceglierà una (e allocherà lo spazio una volta).
+        GlobalVariable *GV = new GlobalVariable(
+            *module,                          // Modulo a cui appartiene
+            arrayTy,                          // Tipo dell'array
+            false,                            // isConstant (false = non è costante, può essere modificata)
+            GlobalValue::CommonLinkage,       // Tipo di Linkage
+            Initializer,                      // Inizializzatore (array di zeri)
+            Name                              // Nome della variabile globale
+        );
+        // GV->setAlignment(Align(8)); // LLVM di solito gestisce l'allineamento, 
+                                     // ma potresti specificarlo se necessario (es. 8 per double)
+        return GV;
+    } else { // È una variabile scalare (simile al tuo codice esistente)
+        // 1. Definisci l'inizializzatore (0.0 per un double scalare)
+        Constant* Initializer = ConstantFP::get(*context, APFloat(0.0));
+
+        // 2. Crea la GlobalVariable per lo scalare.
+        GlobalVariable *GV = new GlobalVariable(
+            *module,
+            Type::getDoubleTy(*context),      // Tipo (double)
+            false,                            // isConstant
+            GlobalValue::CommonLinkage,       // Tipo di Linkage
+            Initializer,                      // Inizializzatore (0.0)
+            Name                              // Nome
+        );
+        // GV->setAlignment(Align(8));
+        return GV;
+    }
+    return nullptr; // Non dovrebbe mai essere raggiunto
+}
