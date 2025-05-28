@@ -126,7 +126,42 @@ BinaryExprAST::BinaryExprAST(char Op, ExprAST* LHS, ExprAST* RHS):
 // Vengono ricorsivamente generati il codice per il primo e quello per il secondo
 // operando. Con i valori memorizzati in altrettanti registri SSA si
 // costruisce l'istruzione utilizzando l'opportuno operatore
+// In driver.cpp
+
 Value *BinaryExprAST::codegen(driver& drv) {
+  // Caso speciale per 'or' (e in futuro 'and') per via dello short-circuiting
+  if (Op == 'o') {
+      Value *L = LHS->codegen(drv);
+      if (!L) return nullptr;
+
+      L = builder->CreateFCmpONE(L, ConstantFP::get(*context, APFloat(0.0)), "tobool");
+      
+      Function *TheFunction = builder->GetInsertBlock()->getParent();
+      
+      BasicBlock *RHSBlock = BasicBlock::Create(*context, "rhs_or", TheFunction);
+      // --- CORREZIONE QUI ---
+      // Ora anche MergeBlock viene creato e aggiunto a TheFunction.
+      BasicBlock *MergeBlock = BasicBlock::Create(*context, "or_cont", TheFunction);
+
+      BasicBlock *LHSBlock = builder->GetInsertBlock();
+      builder->CreateCondBr(L, MergeBlock, RHSBlock);
+
+      builder->SetInsertPoint(RHSBlock);
+      Value *R = RHS->codegen(drv);
+      if (!R) return nullptr;
+      R = builder->CreateFCmpONE(R, ConstantFP::get(*context, APFloat(0.0)), "tobool");
+      builder->CreateBr(MergeBlock);
+      RHSBlock = builder->GetInsertBlock();
+
+      builder->SetInsertPoint(MergeBlock);
+      PHINode *PN = builder->CreatePHI(Type::getInt1Ty(*context), 2, "or_phi");
+      PN->addIncoming(ConstantInt::get(Type::getInt1Ty(*context), 1), LHSBlock);
+      PN->addIncoming(R, RHSBlock);
+      
+      return builder->CreateUIToFP(PN, Type::getDoubleTy(*context), "bool_to_double");
+  }
+
+  // Codice esistente per tutti gli altri operatori binari
   Value *L = LHS->codegen(drv);
   Value *R = RHS->codegen(drv);
   if (!L || !R) 
@@ -141,11 +176,12 @@ Value *BinaryExprAST::codegen(driver& drv) {
   case '/':
     return builder->CreateFDiv(L,R,"addres");
   case '<':
-    return builder->CreateFCmpULT(L,R,"lttest");
+    L = builder->CreateFCmpULT(L,R,"cmptmp");
+    return builder->CreateUIToFP(L, Type::getDoubleTy(*context), "booltmp");
   case '=':
-    return builder->CreateFCmpUEQ(L,R,"eqtest");
+    L = builder->CreateFCmpUEQ(L,R,"cmptmp");
+    return builder->CreateUIToFP(L, Type::getDoubleTy(*context), "booltmp");
   default:  
-    std::cout << Op << std::endl;
     return LogErrorV("Operatore binario non supportato");
   }
 };
@@ -193,85 +229,45 @@ Value* CallExprAST::codegen(driver& drv) {
 IfExprAST::IfExprAST(ExprAST* Cond, ExprAST* TrueExp, ExprAST* FalseExp):
    Cond(Cond), TrueExp(TrueExp), FalseExp(FalseExp) {};
    
+// In driver.cpp - IfExprAST::codegen
 Value* IfExprAST::codegen(driver& drv) {
-    // Viene dapprima generato il codice per valutare la condizione, che
-    // memorizza il risultato (di tipo i1, dunque booleano) nel registro SSA 
-    // che viene "memorizzato" in CondV. 
+    
     Value* CondV = Cond->codegen(drv);
     if (!CondV)
-       return nullptr;
-    
-    // Ora bisogna generare l'istruzione di salto condizionato, ma prima
-    // vanno creati i corrispondenti basic block nella funzione attuale
-    // (ovvero la funzione di cui fa parte il corrente blocco di inserimento)
+        return nullptr;
+
+    // Modifica la stringa qui:
+    CondV = builder->CreateFCmpONE(CondV, ConstantFP::get(*context, APFloat(0.0)), "ifcond_ULTRA_DEBUG"); 
+
     Function *function = builder->GetInsertBlock()->getParent();
-    BasicBlock *TrueBB =  BasicBlock::Create(*context, "trueexp", function);
-    // Il blocco TrueBB viene inserito nella funzione dopo il blocco corrente
-    BasicBlock *FalseBB = BasicBlock::Create(*context, "falseexp");
-    BasicBlock *MergeBB = BasicBlock::Create(*context, "endcond");
-    // Gli altri due blocchi non vengono ancora inseriti perché le istruzioni
-    // previste nel "ramo" true del condizionale potrebbe dare luogo alla creazione
-    // di altri blocchi, che naturalmente andrebbero inseriti prima di FalseBB
-    
-    // Ora possiamo crere l'istruzione di salto condizionato
+
+    // Modifica anche un nome di blocco per sicurezza:
+    BasicBlock *TrueBB =  BasicBlock::Create(*context, "trueexp_DBG", function); 
+    BasicBlock *FalseBB = BasicBlock::Create(*context, "falseexp_DBG", function); 
+    BasicBlock *MergeBB = BasicBlock::Create(*context, "endcond_DBG", function);  
+
     builder->CreateCondBr(CondV, TrueBB, FalseBB);
-    
-    // "Posizioniamo" il builder all'inizio del blocco true, 
-    // generiamo ricorsivamente il codice da eseguire in caso di
-    // condizione vera e, in chiusura di blocco, generiamo il saldo 
-    // incondizionato al blocco merge
+
     builder->SetInsertPoint(TrueBB);
-    Value *TrueV = TrueExp->codegen(drv);
-    if (!TrueV)
-       return nullptr;
+    Value *TrueVal = TrueExp->codegen(drv);
+    if (!TrueVal) return nullptr;
     builder->CreateBr(MergeBB);
-    
-    // Come già ricordato, la chiamata di codegen in TrueExp potrebbe aver inserito 
-    // altri blocchi (nel caso in cui la parte trueexp sia a sua volta un condizionale).
-    // Ne consegue che il blocco corrente potrebbe non coincidere più con TrueBB.
-    // Il branch alla parte merge deve però essere effettuato dal blocco corrente,
-    // che dunque va recuperato. Ed è fondamentale sapere da quale blocco origina
-    // il salto perché tale informazione verrà utilizzata da un'istruzione PHI.
-    // Nel caso in cui non sia stato inserito alcun nuovo blocco, la seguente
-    // istruzione corrisponde ad una NO-OP
-    TrueBB = builder->GetInsertBlock();
-    function->insert(function->end(), FalseBB);
-    
-    // "Posizioniamo" il builder all'inizio del blocco false, 
-    // generiamo ricorsivamente il codice da eseguire in caso di
-    // condizione falsa e, in chiusura di blocco, generiamo il saldo 
-    // incondizionato al blocco merge
+    TrueBB = builder->GetInsertBlock(); 
+
     builder->SetInsertPoint(FalseBB);
-    
-    Value *FalseV = FalseExp->codegen(drv);
-    if (!FalseV)
-       return nullptr;
+    Value *FalseVal = FalseExp->codegen(drv);
+    if (!FalseVal) return nullptr;
     builder->CreateBr(MergeBB);
-    
-    // Esattamente per la ragione spiegata sopra (ovvero il possibile inserimento
-    // di nuovi blocchi da parte della chiamata di codegen in FalseExp), andiamo ora
-    // a recuperare il blocco corrente 
-    FalseBB = builder->GetInsertBlock();
-    function->insert(function->end(), MergeBB);
-    
-    // Andiamo dunque a generare il codice per la parte dove i due "flussi"
-    // di esecuzione si riuniscono. Impostiamo correttamente il builder
+    FalseBB = builder->GetInsertBlock(); 
+
     builder->SetInsertPoint(MergeBB);
-  
-    // Il codice di riunione dei flussi è una "semplice" istruzione PHI: 
-    //a seconda del blocco da cui arriva il flusso, TrueBB o FalseBB, il valore
-    // del costrutto condizionale (si ricordi che si tratta di un "expression if")
-    // deve essere copiato (in un nuovo registro SSA) da TrueV o da FalseV
-    // La creazione di un'istruzione PHI avviene però in due passi, in quanto
-    // il numero di "flussi entranti" non è fissato.
-    // 1) Dapprima si crea il nodo PHI specificando quanti sono i possibili nodi sorgente
-    // 2) Per ogni possibile nodo sorgente, viene poi inserita l'etichetta e il registro
-    //    SSA da cui prelevare il valore 
-    PHINode *PN = builder->CreatePHI(Type::getDoubleTy(*context), 2, "condval");
-    PN->addIncoming(TrueV, TrueBB);
-    PN->addIncoming(FalseV, FalseBB);
+    // E il nome del PHI node:
+    PHINode *PN = builder->CreatePHI(Type::getDoubleTy(*context), 2, "condval_DBG"); 
+    PN->addIncoming(TrueVal, TrueBB);
+    PN->addIncoming(FalseVal, FalseBB);
     return PN;
 };
+
 
 ForExprAST::ForExprAST(VarBindingAST* StartVar, ExprAST* StartExpr, ExprAST* Cond,
                        ExprAST* Step, ExprAST* Body)
@@ -311,6 +307,9 @@ Value* ForExprAST::codegen(driver& drv) {
 
     Value *CondV = Cond->codegen(drv);
     if (!CondV) return nullptr;
+
+    CondV = builder->CreateFCmpONE(CondV, ConstantFP::get(*context, APFloat(0.0)), "loopcond");
+
     builder->CreateCondBr(CondV, LoopBody, AfterLoop);
 
     builder->SetInsertPoint(LoopBody);
@@ -565,7 +564,8 @@ Value* IfStmtAST::codegen(driver& drv) {
     Value* CondV = Cond->codegen(drv);
     if (!CondV)
         return nullptr;
-    
+    CondV = builder->CreateFCmpONE(CondV, ConstantFP::get(*context, APFloat(0.0)), "ifcond");
+
     Function *TheFunction = builder->GetInsertBlock()->getParent();
 
     // Crea i blocchi per i rami 'then' ed 'else'.

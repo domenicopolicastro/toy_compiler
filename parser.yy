@@ -61,6 +61,7 @@
   PLUSPLUS   "++"
   IF         "if"     
   ELSE       "else"
+  OR         "or"
 ;
 
 %token <std::string> IDENTIFIER "id"
@@ -128,6 +129,7 @@ idseq:
 %right ASSIGN;
 %right QMARK; // L'operatore ternario ha bassa precedenza
 %left ":";
+%left OR;
 %right UMINUS;
 %right PLUSPLUS;  
 %left "<" "==";
@@ -184,6 +186,7 @@ simple_exp:
   | simple_exp "/" simple_exp { $$ = new BinaryExprAST('/',$1,$3); }
   | simple_exp "<" simple_exp { $$ = new BinaryExprAST('<',$1,$3); }
   | simple_exp "==" simple_exp{ $$ = new BinaryExprAST('=',$1,$3); }
+  | simple_exp OR simple_exp    { $$ = new BinaryExprAST('o', $1, $3); }
   | idexp                     { $$ = $1; }
   | "(" exp ")"               { $$ = $2; }
   | "number"                  { $$ = new NumberExprAST($1); }
