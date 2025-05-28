@@ -189,6 +189,12 @@ stmtlist:
 
 exp:
     IDENTIFIER ASSIGN exp     { $$ = new AssignExprAST($1,$3); }
+  | IDENTIFIER LBRACKET exp RBRACKET ASSIGN exp { // <-- NUOVA REGOLA PER ASSEGNAZIONE AD ARRAY
+    // $1: Nome Array (IDENTIFIER)
+    // $3: Espressione Indice (exp dentro [])
+    // $6: Espressione Valore (exp dopo =)
+    $$ = new ArrayAssignExprAST($1, $3, $6); 
+    }
   | simple_exp                { $$ = $1; }
   | expif                     { $$ = $1; }
 ;

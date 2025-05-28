@@ -788,3 +788,37 @@ Value* ArrayAccessExprAST::codegen(driver& drv) {
     //    Il tipo da caricare è il tipo dell'elemento dell'array, che è double.
     return builder->CreateLoad(Type::getDoubleTy(*context), elemPtr, "loadtmp");
 }
+
+Value* ArrayAssignExprAST::codegen(driver& drv) {
+    // 1. Trova il puntatore all'array globale.
+    GlobalVariable* arrayVar = module->getGlobalVariable(ArrayName);
+    if (!arrayVar) {
+        return LogErrorV("Array globale non definito per l'assegnazione: " + ArrayName);
+    }
+    if (!arrayVar->getValueType()->isArrayTy()) {
+        return LogErrorV(ArrayName + " non è un array globale per l'assegnazione.");
+    }
+
+    // 2. Valuta l'espressione dell'indice e convertila in intero.
+    Value* indexVal = IndexExpr->codegen(drv);
+    if (!indexVal) return nullptr;
+    Value* indexInt = builder->CreateFPToSI(indexVal, Type::getInt64Ty(*context), "indexcast_assign");
+
+    // 3. Valuta l'espressione del valore da assegnare (RHS).
+    Value* valueToStore = ValueExpr->codegen(drv);
+    if (!valueToStore) return nullptr;
+
+    // 4. Prepara gli indici per GEP.
+    std::vector<Value*> indices;
+    indices.push_back(ConstantInt::get(Type::getInt64Ty(*context), 0)); // Indice per il puntatore globale
+    indices.push_back(indexInt);                                       // Indice per l'elemento
+
+    // 5. Genera l'istruzione GEP per ottenere il puntatore all'elemento.
+    Value* elemPtr = builder->CreateGEP(arrayVar->getValueType(), arrayVar, indices, "arrayidx_assign");
+
+    // 6. Genera l'istruzione Store.
+    builder->CreateStore(valueToStore, elemPtr);
+
+    // 7. L'espressione di assegnazione restituisce il valore assegnato.
+    return valueToStore;
+}

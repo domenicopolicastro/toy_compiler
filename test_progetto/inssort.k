@@ -1,9 +1,14 @@
-global VETT[5]; 
-
+global VETT[5];
 extern printval(v control);
 
 def main() {
-  var x = 0;
-  x = VETT[2]; 
-  printval(x, 0)
+  var val_letto = 0;
+
+  VETT[1] = 10.5;      
+  VETT[3] = VETT[1] + 2.0; 
+
+  printval(VETT[0], 0); 
+  printval(VETT[1], 0); 
+  printval(VETT[3], 0)
+
 };

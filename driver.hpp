@@ -284,5 +284,22 @@ public:
   Value *codegen(driver& drv) override;
 };
 
+class ArrayAssignExprAST : public ExprAST {
+private:
+  std::string ArrayName;
+  ExprAST* IndexExpr;
+  ExprAST* ValueExpr; // L'espressione da assegnare (RHS)
+
+public:
+  ArrayAssignExprAST(const std::string &arrayName, ExprAST* indexExpr, ExprAST* valueExpr)
+    : ArrayName(arrayName), IndexExpr(indexExpr), ValueExpr(valueExpr) {}
+
+  // Eventuali getter se necessari per debug
+  // const std::string& getArrayName() const { return ArrayName; }
+  // ExprAST* getIndexExpr() const { return IndexExpr; }
+  // ExprAST* getValueExpr() const { return ValueExpr; }
+
+  Value *codegen(driver& drv) override;
+};
 
 #endif // ! DRIVER_HH
