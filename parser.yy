@@ -91,7 +91,7 @@
 %type <std::vector<std::string>> idseq
 %type <VarBindingAST*> binding
 %type <RootAST*> stmt
-%type <RootAST*> ifstmt
+%type <ExprAST*> ifstmt
 %type <std::vector<RootAST*>> stmtlist
 // %type <ExprAST*> condexp   <-- RIMOSSO: Non più necessario
 // %type <std::vector<VarBindingAST*>> vardefs <-- RIMOSSO: Non utilizzato
@@ -164,12 +164,12 @@ idseq:
       { $$ = $1; }
  ;
 
-ifstmt:
-    IF "(" exp ")" blockexp { 
-        $$ = new IfStmtAST($3, (BlockExprAST*)$5, nullptr); 
+ifstmt: // Ricorda che ifstmt ora restituisce ExprAST*
+    IF "(" exp ")" exp { // Era blockexp, ora è exp
+        $$ = new IfStmtAST($3, $5, nullptr); 
     }
-  | IF "(" exp ")" blockexp ELSE blockexp { 
-        $$ = new IfStmtAST($3, (BlockExprAST*)$5, (BlockExprAST*)$7); 
+  | IF "(" exp ")" exp ELSE exp { // Erano blockexp, ora sono exp
+        $$ = new IfStmtAST($3, $5, $7); 
     }
 ;
 
@@ -218,6 +218,7 @@ simple_exp:
   | INTEGER                   { $$ = new NumberExprAST(static_cast<double>($1)); }
   | blockexp                  { $$ = $1; }
   | forexpr                   { $$ = $1; }
+  | ifstmt                    { $$ = $1; }
 ;
 
 blockexp:

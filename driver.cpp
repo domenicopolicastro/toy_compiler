@@ -630,11 +630,10 @@ Value* UnaryExprAST::codegen(driver& drv) {
             return LogErrorV("Operatore unario sconosciuto: " + std::string(1, Op));
     }
 }
+IfStmtAST::IfStmtAST(ExprAST* Cond, ExprAST* ThenBranch, ExprAST* ElseBranch)
+    : Cond(Cond), ThenBranch(ThenBranch), ElseBranch(ElseBranch) {}
 
-IfStmtAST::IfStmtAST(ExprAST* Cond, BlockExprAST* Then, BlockExprAST* Else)
-    : Cond(Cond), Then(Then), Else(Else) {}
-
-// Implementazione del codegen
+// Implementazione del codegen CORRETTA
 Value* IfStmtAST::codegen(driver& drv) {
     Value* CondV = Cond->codegen(drv);
     if (!CondV)
@@ -643,48 +642,52 @@ Value* IfStmtAST::codegen(driver& drv) {
 
     Function *TheFunction = builder->GetInsertBlock()->getParent();
 
-    // Crea i blocchi per i rami 'then' ed 'else'.
+    // Crea i blocchi per i rami 'then' ed 'else', associandoli a TheFunction.
     BasicBlock *ThenBB = BasicBlock::Create(*context, "then", TheFunction);
-    BasicBlock *ElseBB = BasicBlock::Create(*context, "else");
-    BasicBlock *MergeBB = BasicBlock::Create(*context, "ifcont");
+    BasicBlock *ElseBB = BasicBlock::Create(*context, "else", TheFunction);     // Aggiunto TheFunction
+    BasicBlock *MergeBB = BasicBlock::Create(*context, "ifcont", TheFunction);  // Aggiunto TheFunction
 
-    if (Else) {
+    // Usa i nomi corretti dei membri: ElseBranch invece di Else
+    if (ElseBranch) {
         // Se c'è un blocco 'else', salta a ThenBB o a ElseBB
         builder->CreateCondBr(CondV, ThenBB, ElseBB);
     } else {
         // Altrimenti, salta a ThenBB o direttamente dopo l'if (MergeBB)
+        // e rimuovi il blocco ElseBB se non viene usato.
+        ElseBB->eraseFromParent(); // Rimuoviamo ElseBB se non c'è un ramo else
         builder->CreateCondBr(CondV, ThenBB, MergeBB);
     }
 
     // Genera il codice per il blocco 'then'
     builder->SetInsertPoint(ThenBB);
-    Value *ThenV = Then->codegen(drv);
+    // Usa il nome corretto del membro: ThenBranch invece di Then
+    Value *ThenV = ThenBranch->codegen(drv);
     if (!ThenV) return nullptr;
     builder->CreateBr(MergeBB); // Salta al blocco di continuazione
-
-    // Il blocco 'then' potrebbe aver creato altri blocchi, quindi aggiorniamo ThenBB
-    // per il PHI node, anche se qui non lo usiamo, è buona norma.
-    ThenBB = builder->GetInsertBlock();
+    ThenBB = builder->GetInsertBlock(); // Aggiorna ThenBB per consistenza (anche se non usato per PHI qui)
 
     // Genera il codice per il blocco 'else', se esiste
-    if (Else) {
-        TheFunction->insert(TheFunction->end(), ElseBB);
+    // Usa il nome corretto del membro: ElseBranch invece di Else
+    if (ElseBranch) {
+        // ElseBB è già stato aggiunto a TheFunction (o lo sarà se la funzione insert venisse usata)
+        // Non è necessario TheFunction->insert(TheFunction->end(), ElseBB); se creato con parent
         builder->SetInsertPoint(ElseBB);
-        Value* ElseV = Else->codegen(drv);
+        Value* ElseV = ElseBranch->codegen(drv); // Usa ElseBranch
         if (!ElseV) return nullptr;
         builder->CreateBr(MergeBB);
-        ElseBB = builder->GetInsertBlock();
+        ElseBB = builder->GetInsertBlock(); // Aggiorna ElseBB
     }
     
-    // Inserisci il blocco di continuazione
-    TheFunction->insert(TheFunction->end(), MergeBB);
+    // Il blocco MergeBB è già stato aggiunto a TheFunction
+    // Non è necessario TheFunction->insert(TheFunction->end(), MergeBB);
     builder->SetInsertPoint(MergeBB);
     
-    // Un if-statement non produce un valore, quindi ritorniamo un valore nullo o costante.
-    return Constant::getNullValue(Type::getDoubleTy(*context));
+    // Un if-statement non produce un valore (o produce un valore di default come 0.0),
+    // quindi ritorniamo un valore nullo coerente con ExprAST o un valore costante.
+    // Dato che IfStmtAST ora è un ExprAST, dovrebbe restituire un Value*.
+    // Restituiamo 0.0 come valore di default per uno statement if.
+    return ConstantFP::get(*context, APFloat(0.0)); 
 }
-// In driver.cpp
-
 // Se avevi una definizione separata del costruttore GlobalDeclAST in driver.cpp, 
 // assicurati che corrisponda a quella in driver.hpp:
 // GlobalDeclAST::GlobalDeclAST(const std::string &N, int size) : Name(N), ArraySize(size) {}

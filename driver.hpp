@@ -169,13 +169,14 @@ public:
   Value *codegen(driver& drv) override;
 };
 
-class IfStmtAST : public RootAST {
+
+class IfStmtAST : public ExprAST {
 private:
   ExprAST* Cond;
-  BlockExprAST* Then;
-  BlockExprAST* Else; // Può essere nullptr
+  ExprAST* ThenBranch;  // Nome corretto
+  ExprAST* ElseBranch;  // Nome corretto (può essere nullptr)
 public:
-  IfStmtAST(ExprAST* Cond, BlockExprAST* Then, BlockExprAST* Else);
+  IfStmtAST(ExprAST* Cond, ExprAST* ThenBranch, ExprAST* ElseBranch);
   Value *codegen(driver& drv) override;
 };
 
