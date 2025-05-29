@@ -211,6 +211,8 @@ forexpr:
 
 binding:
   VAR IDENTIFIER ASSIGN exp { $$ = new VarBindingAST($2,$4); }
+| VAR IDENTIFIER           { $$ = new VarBindingAST($2, nullptr); }
+;
 
 expif:
   exp QMARK exp COLON exp %prec QMARK { $$ = new IfExprAST($1,$3,$5); }

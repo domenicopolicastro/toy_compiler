@@ -414,28 +414,32 @@ const std::string& VarBindingAST::getName() const {
 };
 
 AllocaInst* VarBindingAST::codegen(driver& drv) {
-   // Viene subito recuperato il riferimento alla funzione in cui si trova
-   // il blocco corrente. Il riferimento è necessario perché lo spazio necessario
-   // per memorizzare una variabile (ovunque essa sia definita, si tratti cioè
-   // di un parametro oppure di una variabile locale ad un blocco espressione)
-   // viene sempre riservato nell'entry block della funzione. Ricordiamo che
-   // l'allocazione viene fatta tramite l'utility CreateEntryBlockAlloca
    Function *fun = builder->GetInsertBlock()->getParent();
-   // Ora viene generato il codice che definisce il valore della variabile
-   Value *BoundVal = Val->codegen(drv);
-   if (!BoundVal)  // Qualcosa è andato storto nella generazione del codice?
-      return nullptr;
-   // Se tutto ok, si genera l'struzione che alloca memoria per la varibile ...
+   // Allocate memory for the variable in the entry block
    AllocaInst *Alloca = CreateEntryBlockAlloca(fun, Name);
-   // ... e si genera l'istruzione per memorizzarvi il valore dell'espressione,
-   // ovvero il contenuto del registro BoundVal
-   drv.NamedValues[Name] = Alloca;
-   builder->CreateStore(BoundVal, Alloca);
+
+   Value *InitialVal;
+   if (Val) { // If an explicit initializer expression (Val) is provided
+      InitialVal = Val->codegen(drv);
+      if (!InitialVal) {
+         // Handle error in initializer expression codegen if necessary,
+         // for now, we assume if an init expr is there, it should compile.
+         // If InitialVal is null, the variable might get an undef store.
+         // For robustness, you might return nullptr or ensure a default even here.
+         return nullptr; // Or LogErrorV and return nullptr
+      }
+   } else { // No explicit initializer, default to 0.0
+      InitialVal = ConstantFP::get(*context, APFloat(0.0));
+   }
+
+   // Store the initial value (either from expression or default 0.0)
+   builder->CreateStore(InitialVal, Alloca);
    
-   // L'istruzione di allocazione (che include il registro "puntatore" all'area di memoria
-   // allocata) viene restituita per essere inserita nella symbol table
+   // Add the variable to the named values map for the current scope
+   drv.NamedValues[Name] = Alloca;
+   
    return Alloca;
-};
+}
 
 /************************* Prototype Tree *************************/
 PrototypeAST::PrototypeAST(std::string Name, std::vector<std::string> Args):
