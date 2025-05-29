@@ -80,7 +80,7 @@
 %token <long long> INTEGER "integer"
 
 %type <ExprAST*> exp
-%type <ExprAST*> simple_exp
+%type <ExprAST*> simple_exp_terms
 %type <ExprAST*> idexp
 %type <ExprAST*> expif
 %type <ExprAST*> forexpr
@@ -109,31 +109,31 @@ program:
 | top ";" program           { $$ = new SeqAST($1,$3); };
 
 top:
-    %empty                                        { $$ = nullptr; }
-  | definition                                    { $$ = $1; }
-  | external                                      { $$ = $1; }
-  | GLOBAL IDENTIFIER                             { $$ = new GlobalDeclAST($2, 0); }
-  | GLOBAL IDENTIFIER LBRACKET INTEGER RBRACKET   {
-                                                      if ($4 <= 0) {
-                                                          yy::parser::error(drv.location, "La dimensione dell'array deve essere positiva.");
-                                                          YYERROR;
+    %empty                                              { $$ = nullptr; }
+  | definition                                          { $$ = $1; }
+  | external                                            { $$ = $1; }
+  | GLOBAL IDENTIFIER                                   { $$ = new GlobalDeclAST($2, 0); }
+  | GLOBAL IDENTIFIER LBRACKET INTEGER RBRACKET     {
+                                                          if ($4 <= 0) {
+                                                              yy::parser::error(drv.location, "La dimensione dell'array deve essere positiva.");
+                                                              YYERROR;
+                                                          }
+                                                          $$ = new GlobalDeclAST($2, static_cast<int>($4));
                                                       }
-                                                      $$ = new GlobalDeclAST($2, static_cast<int>($4));
-                                                  }
 ;
 
 definition:
-  DEF proto exp        { $$ = new FunctionAST($2,$3); $2->noemit(); };
+  DEF proto exp             { $$ = new FunctionAST($2,$3); $2->noemit(); };
 
 external:
-  EXTERN proto         { $$ = $2; };
+  EXTERN proto              { $$ = $2; };
 
 proto:
   IDENTIFIER "(" idseq ")" { $$ = new PrototypeAST($1,$3);  };
 
 idseq:
-  %empty                   { std::vector<std::string> args; $$ = args; }
-| IDENTIFIER idseq         { $2.insert($2.begin(),$1); $$ = $2; };
+  %empty                    { std::vector<std::string> args; $$ = args; }
+| IDENTIFIER idseq          { $2.insert($2.begin(),$1); $$ = $2; };
 
 %right ASSIGN;
 %right QMARK;
@@ -146,8 +146,8 @@ idseq:
 %left STAR SLASH;
 
 stmt:
-  binding                  { $$ = (RootAST*)$1; }
-| exp                      { $$ = (RootAST*)$1; }
+  binding                   { $$ = (RootAST*)$1; }
+| exp                       { $$ = (RootAST*)$1; }
 ;
 
 ifstmt:
@@ -160,40 +160,40 @@ ifstmt:
 ;
 
 stmtlist:
-  %empty                   { $$ = std::vector<RootAST*>(); }
-| stmt                     { $$ = std::vector<RootAST*>{ $1 }; }
-| stmtlist ";" stmt        {
-                             $$ = $1;
-                             $$.push_back($3);
-                           }
+  %empty                    { $$ = std::vector<RootAST*>(); }
+| stmt                      { $$ = std::vector<RootAST*>{ $1 }; }
+| stmtlist ";" stmt         {
+                                $$ = $1;
+                                $$.push_back($3);
+                              }
 ;
 
 exp:
   IDENTIFIER ASSIGN exp                          { $$ = new AssignExprAST($1,$3); }
-| IDENTIFIER LBRACKET exp RBRACKET ASSIGN exp    { $$ = new ArrayAssignExprAST($1, $3, $6); }
-| simple_exp                                     { $$ = $1; }
-| expif                                          { $$ = $1; }
+| IDENTIFIER LBRACKET exp RBRACKET ASSIGN exp   { $$ = new ArrayAssignExprAST($1, $3, $6); }
+| simple_exp_terms                              { $$ = $1; }
+| expif                                         { $$ = $1; }
+| ifstmt                                        { $$ = $1; }
+| forexpr                                       { $$ = $1; }
 ;
 
-simple_exp:
-  NOT simple_exp %prec NOT        { $$ = new UnaryExprAST('!', $2); }
-| MINUS simple_exp %prec UMINUS   { $$ = new UnaryExprAST('-', $2); }
-| PLUSPLUS simple_exp             { $$ = new UnaryExprAST('+', $2); }
-| simple_exp PLUS simple_exp      { $$ = new BinaryExprAST('+',$1,$3); }
-| simple_exp MINUS simple_exp     { $$ = new BinaryExprAST('-',$1,$3); }
-| simple_exp STAR simple_exp      { $$ = new BinaryExprAST('*',$1,$3); }
-| simple_exp SLASH simple_exp     { $$ = new BinaryExprAST('/',$1,$3); }
-| simple_exp LT simple_exp        { $$ = new BinaryExprAST('<',$1,$3); }
-| simple_exp EQ simple_exp        { $$ = new BinaryExprAST('=',$1,$3); }
-| simple_exp AND simple_exp       { $$ = new BinaryExprAST('a', $1, $3); }
-| simple_exp OR simple_exp        { $$ = new BinaryExprAST('o', $1, $3); }
-| idexp                           { $$ = $1; }
-| LPAREN exp RPAREN               { $$ = $2; }
-| NUMBER                          { $$ = new NumberExprAST($1); }
-| INTEGER                         { $$ = new NumberExprAST(static_cast<double>($1)); }
-| blockexp                        { $$ = $1; }
-| forexpr                         { $$ = $1; }
-| ifstmt                          { $$ = $1; }
+simple_exp_terms:
+  NOT simple_exp_terms %prec NOT      { $$ = new UnaryExprAST('!', $2); }
+| MINUS simple_exp_terms %prec UMINUS { $$ = new UnaryExprAST('-', $2); }
+| PLUSPLUS simple_exp_terms           { $$ = new UnaryExprAST('+', $2); }
+| simple_exp_terms PLUS simple_exp_terms  { $$ = new BinaryExprAST('+',$1,$3); }
+| simple_exp_terms MINUS simple_exp_terms { $$ = new BinaryExprAST('-',$1,$3); }
+| simple_exp_terms STAR simple_exp_terms  { $$ = new BinaryExprAST('*',$1,$3); }
+| simple_exp_terms SLASH simple_exp_terms { $$ = new BinaryExprAST('/',$1,$3); }
+| simple_exp_terms LT simple_exp_terms    { $$ = new BinaryExprAST('<',$1,$3); }
+| simple_exp_terms EQ simple_exp_terms    { $$ = new BinaryExprAST('=',$1,$3); }
+| simple_exp_terms AND simple_exp_terms   { $$ = new BinaryExprAST('a', $1, $3); }
+| simple_exp_terms OR simple_exp_terms    { $$ = new BinaryExprAST('o', $1, $3); }
+| idexp                               { $$ = $1; }
+| LPAREN exp RPAREN                   { $$ = $2; }
+| NUMBER                              { $$ = new NumberExprAST($1); }
+| INTEGER                             { $$ = new NumberExprAST(static_cast<double>($1)); }
+| blockexp                            { $$ = $1; }
 ;
 
 blockexp:
@@ -218,22 +218,22 @@ expif:
 ;
 
 idexp:
-  IDENTIFIER                                  { $$ = new VariableExprAST($1); }
-| IDENTIFIER LPAREN optexp RPAREN             { $$ = new CallExprAST($1,$3); }
-| IDENTIFIER LBRACKET exp RBRACKET            { $$ = new ArrayAccessExprAST($1, $3); }
+  IDENTIFIER                          { $$ = new VariableExprAST($1); }
+| IDENTIFIER LPAREN optexp RPAREN     { $$ = new CallExprAST($1,$3); }
+| IDENTIFIER LBRACKET exp RBRACKET    { $$ = new ArrayAccessExprAST($1, $3); }
 ;
 
 optexp:
-  %empty                   { std::vector<ExprAST*> args; $$ = args; }
-| explist                  { $$ = $1; };
+  %empty                    { std::vector<ExprAST*> args; $$ = args; }
+| explist                   { $$ = $1; };
 
 explist:
-  exp                      {
-                             std::vector<ExprAST*> args;
-                             args.push_back($1);
-                             $$ = args;
-                           }
-| exp COMMA explist        { $3.insert($3.begin(), $1); $$ = $3; };
+  exp                       {
+                                std::vector<ExprAST*> args;
+                                args.push_back($1);
+                                $$ = args;
+                              }
+| exp COMMA explist         { $3.insert($3.begin(), $1); $$ = $3; };
 
 %%
 
