@@ -53,6 +53,7 @@ blank   [ \t]
 "]"      return yy::parser::make_RBRACKET  (loc);
 
 "++"     return yy::parser::make_PLUSPLUS  (loc);
+"--"     return yy::parser::make_MINUSMINUS(loc);
 
 {integer} { 
            errno = 0;

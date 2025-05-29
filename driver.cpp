@@ -569,71 +569,62 @@ Function *FunctionAST::codegen(driver& drv) {
 UnaryExprAST::UnaryExprAST(char Op, ExprAST* Operand)
     : Op(Op), Operand(Operand) {}
 
-// In driver.cpp - UnaryExprAST::codegen
 Value* UnaryExprAST::codegen(driver& drv) {
+    VariableExprAST* varAST = dynamic_cast<VariableExprAST*>(Operand);
+
     switch (Op) {
-        case '+': { // Gestione del PRE-INCREMENTO '++'
-            // L'operando di '++' deve essere una variabile (un l-value).
-            VariableExprAST* varAST = dynamic_cast<VariableExprAST*>(Operand);
+        case 'p': {
             if (!varAST)
                 return LogErrorV("L'operando dell'operatore unario ++ deve essere una variabile");
-
             std::string varName = std::get<std::string>(varAST->getLexVal());
-            
-            // Cerca il puntatore alla variabile (prima locale, poi globale).
-            Value* varPtr = drv.NamedValues[varName]; // Prova locali
+            Value* varPtr = drv.NamedValues[varName];
             if (!varPtr) {
-                varPtr = module->getGlobalVariable(varName); // Prova globali
+                varPtr = module->getGlobalVariable(varName);
             }
             if (!varPtr) {
                 return LogErrorV("Variabile non definita per '++': " + varName);
             }
-
-            // Carica il valore attuale della variabile.
             Value* oldVal = builder->CreateLoad(Type::getDoubleTy(*context), varPtr, varName.c_str());
             if (!oldVal) return nullptr;
-
-            // Aggiungi 1.0 al valore.
             Value* newVal = builder->CreateFAdd(oldVal, ConstantFP::get(*context, APFloat(1.0)), "incrtmp");
-
-            // Salva il nuovo valore nella variabile.
             builder->CreateStore(newVal, varPtr);
-
-            // L'espressione di pre-incremento restituisce il nuovo valore.
             return newVal;
         }
-
-        case '-': { // Gestione del MENO UNARIO '-'
-            // La negazione può applicarsi a qualsiasi espressione che restituisce un valore.
+        case 'm': {
+            if (!varAST)
+                return LogErrorV("L'operando dell'operatore unario -- deve essere una variabile");
+            std::string varName = std::get<std::string>(varAST->getLexVal());
+            Value* varPtr = drv.NamedValues[varName];
+            if (!varPtr) {
+                varPtr = module->getGlobalVariable(varName);
+            }
+            if (!varPtr) {
+                return LogErrorV("Variabile non definita per '--': " + varName);
+            }
+            Value* oldVal = builder->CreateLoad(Type::getDoubleTy(*context), varPtr, varName.c_str());
+            if (!oldVal) return nullptr;
+            Value* newVal = builder->CreateFSub(oldVal, ConstantFP::get(*context, APFloat(1.0)), "decrtmp");
+            builder->CreateStore(newVal, varPtr);
+            return newVal;
+        }
+        case '-': {
             Value* operandV = Operand->codegen(drv);
             if (!operandV)
                 return nullptr;
-            
-            // Crea l'istruzione LLVM per la negazione floating-point (fneg).
             return builder->CreateFNeg(operandV, "negtmp");
         }
-
-        case '!': { // Gestione della NEGAZIONE LOGICA 'not'
+        case '!': {
             Value* operandV = Operand->codegen(drv);
             if (!operandV) return nullptr;
-
-            // 1. Converti l'operando double (0.0 per false, !=0.0 per true) in un booleano i1.
-            //    Un valore è "true" se è diverso da 0.0.
             Value* operand_i1 = builder->CreateFCmpONE(operandV, ConstantFP::get(*context, APFloat(0.0)), "tobool_not_arg");
-            
-            // 2. Nega il valore i1. Ci sono vari modi, ad esempio:
-            //    - not X  è equivalente a  X == false (icmp eq i1 X, 0)
-            //    - not X è equivalente a X xor true (xor i1 X, 1)
             Value* not_i1 = builder->CreateICmpEQ(operand_i1, ConstantInt::get(Type::getInt1Ty(*context), 0), "not_res_i1");
-            
-            // 3. Riconverti il risultato booleano i1 in double (0.0 o 1.0) per coerenza con il linguaggio.
             return builder->CreateUIToFP(not_i1, Type::getDoubleTy(*context), "bool_to_double_not");
         }
-
         default:
             return LogErrorV("Operatore unario sconosciuto: " + std::string(1, Op));
     }
 }
+
 IfStmtAST::IfStmtAST(ExprAST* Cond, ExprAST* ThenBranch, ExprAST* ElseBranch)
     : Cond(Cond), ThenBranch(ThenBranch), ElseBranch(ElseBranch) {}
 

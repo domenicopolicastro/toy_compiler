@@ -8,7 +8,7 @@
 %define parse.assert
 
 %code requires {
-  # include <string>
+  #include <string>
   #include <exception>
   class driver;
   class RootAST;
@@ -39,7 +39,7 @@
 %define parse.error verbose
 
 %code {
-# include "driver.hpp"
+#include "driver.hpp"
 }
 
 %define api.token.prefix {TOK_}
@@ -66,6 +66,7 @@
   GLOBAL     "global"
   FOR        "for"
   PLUSPLUS   "++"
+  MINUSMINUS "--"
   IF         "if"
   ELSE       "else"
   OR         "or"
@@ -140,9 +141,9 @@ idseq:
 %left OR;
 %left AND;
 %left LT EQ;
-%left PLUS MINUS; 
+%left PLUS MINUS;
 %left STAR SLASH;
-%right NOT PLUSPLUS UMINUS; 
+%right NOT PLUSPLUS MINUSMINUS UMINUS;
 
 stmt:
   binding                   { $$ = (RootAST*)$1; }
@@ -177,9 +178,10 @@ exp:
 ;
 
 simple_exp_terms:
-  NOT simple_exp_terms %prec NOT      { $$ = new UnaryExprAST('!', $2); }
-| MINUS simple_exp_terms %prec UMINUS { $$ = new UnaryExprAST('-', $2); }
-| PLUSPLUS simple_exp_terms           { $$ = new UnaryExprAST('+', $2); }
+  NOT simple_exp_terms %prec NOT                 { $$ = new UnaryExprAST('!', $2); }
+| MINUS simple_exp_terms %prec UMINUS            { $$ = new UnaryExprAST('-', $2); }
+| PLUSPLUS simple_exp_terms %prec PLUSPLUS       { $$ = new UnaryExprAST('p', $2); }
+| MINUSMINUS simple_exp_terms %prec MINUSMINUS   { $$ = new UnaryExprAST('m', $2); }
 | simple_exp_terms PLUS simple_exp_terms  { $$ = new BinaryExprAST('+',$1,$3); }
 | simple_exp_terms MINUS simple_exp_terms { $$ = new BinaryExprAST('-',$1,$3); }
 | simple_exp_terms STAR simple_exp_terms  { $$ = new BinaryExprAST('*',$1,$3); }
@@ -211,7 +213,7 @@ forexpr:
 
 binding:
   VAR IDENTIFIER ASSIGN exp { $$ = new VarBindingAST($2,$4); }
-| VAR IDENTIFIER           { $$ = new VarBindingAST($2, nullptr); }
+| VAR IDENTIFIER            { $$ = new VarBindingAST($2, nullptr); }
 ;
 
 expif:
@@ -241,5 +243,5 @@ explist:
 void
 yy::parser::error (const location_type& l, const std::string& m)
 {
-  std::cerr << l << ": " << m << '\\n';
+  std::cerr << l << ": " << m << '\n';
 }
