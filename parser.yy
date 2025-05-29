@@ -1,4 +1,4 @@
-%skeleton "lalr1.cc" /* -*- C++ -*- */
+%skeleton "lalr1.cc"
 %require "3.2"
 %defines
 
@@ -21,9 +21,16 @@
   class PrototypeAST;
   class BlockExprAST;
   class VarBindingAST;
+  class GlobalDeclAST;
+  class AssignExprAST;
+  class ArrayAccessExprAST;
+  class ArrayAssignExprAST;
+  class IfStmtAST;
+  class ForExprAST;
+  class UnaryExprAST;
+  class IfExprAST;
 }
 
-// The parsing context.
 %param { driver& drv }
 
 %locations
@@ -59,12 +66,12 @@
   GLOBAL     "global"
   FOR        "for"
   PLUSPLUS   "++"
-  IF         "if"     
+  IF         "if"
   ELSE       "else"
   OR         "or"
-  AND        "and"    
+  AND        "and"
   NOT        "not"
-  LBRACKET   "["      
+  LBRACKET   "["
   RBRACKET   "]"
 ;
 
@@ -72,11 +79,8 @@
 %token <double> NUMBER "number"
 %token <long long> INTEGER "integer"
 
-/* --- INIZIO MODIFICHE IMPORTANTI --- */
-
-// Dichiarazioni dei tipi per i non-terminali
 %type <ExprAST*> exp
-%type <ExprAST*> simple_exp  // <-- AGGIUNTO: Dichiarazione per il nuovo simbolo
+%type <ExprAST*> simple_exp
 %type <ExprAST*> idexp
 %type <ExprAST*> expif
 %type <ExprAST*> forexpr
@@ -93,188 +97,144 @@
 %type <RootAST*> stmt
 %type <ExprAST*> ifstmt
 %type <std::vector<RootAST*>> stmtlist
-// %type <ExprAST*> condexp   <-- RIMOSSO: Non più necessario
-// %type <std::vector<VarBindingAST*>> vardefs <-- RIMOSSO: Non utilizzato
-
-/* --- FINE MODIFICHE IMPORTANTI --- */
-
 
 %%
 %start startsymb;
 
 startsymb:
-program                 { drv.root = $1; }
+  program                   { drv.root = $1; }
 
 program:
-  %empty                { $$ = new SeqAST(nullptr,nullptr); }
-|  top ";" program      { $$ = new SeqAST($1,$3); };
+  %empty                    { $$ = new SeqAST(nullptr,nullptr); }
+| top ";" program           { $$ = new SeqAST($1,$3); };
 
 top:
-    %empty                   { $$ = nullptr; }
-  | definition               { $$ = $1; }
-  | external                 { $$ = $1; }
-  // Modifica questa sezione per GLOBAL
-  | GLOBAL IDENTIFIER { // Variabile globale scalare
-        // Passiamo size 0 o -1 per indicare che non è un array, o un flag booleano
-        $$ = new GlobalDeclAST($2, 0); // Assumiamo che GlobalDeclAST ora prenda una dimensione
-    }
-  | GLOBAL IDENTIFIER LBRACKET INTEGER RBRACKET { // Array globale
-        if ($4 <= 0) { // Controllo sulla dimensione dell'array
-            yy::parser::error(drv.location, "La dimensione dell'array deve essere positiva.");
-            YYERROR; // Segnala un errore di parsing
-        }
-        $$ = new GlobalDeclAST($2, static_cast<int>($4)); // Passa la dimensione
-    }
+    %empty                                        { $$ = nullptr; }
+  | definition                                    { $$ = $1; }
+  | external                                      { $$ = $1; }
+  | GLOBAL IDENTIFIER                             { $$ = new GlobalDeclAST($2, 0); }
+  | GLOBAL IDENTIFIER LBRACKET INTEGER RBRACKET   {
+                                                      if ($4 <= 0) {
+                                                          yy::parser::error(drv.location, "La dimensione dell'array deve essere positiva.");
+                                                          YYERROR;
+                                                      }
+                                                      $$ = new GlobalDeclAST($2, static_cast<int>($4));
+                                                  }
 ;
 
 definition:
-  "def" proto exp       { $$ = new FunctionAST($2,$3); $2->noemit(); };
+  DEF proto exp        { $$ = new FunctionAST($2,$3); $2->noemit(); };
 
 external:
-  "extern" proto        { $$ = $2; };
+  EXTERN proto         { $$ = $2; };
 
 proto:
-  "id" "(" idseq ")"    { $$ = new PrototypeAST($1,$3);  };
+  IDENTIFIER "(" idseq ")" { $$ = new PrototypeAST($1,$3);  };
 
 idseq:
-  %empty                { std::vector<std::string> args;
-                         $$ = args; }
-| "id" idseq            { $2.insert($2.begin(),$1); $$ = $2; };
+  %empty                   { std::vector<std::string> args; $$ = args; }
+| IDENTIFIER idseq         { $2.insert($2.begin(),$1); $$ = $2; };
 
-// Definizione della precedenza degli operatori
 %right ASSIGN;
-%right QMARK; // L'operatore ternario ha bassa precedenza
-%left ":";
+%right QMARK;
 %left OR;
 %left AND;
 %right UMINUS NOT;
-%right PLUSPLUS;  
-%left "<" "==";
-%left "+" "-";
-%left "*" "/";
+%right PLUSPLUS;
+%left LT EQ;
+%left PLUS MINUS;
+%left STAR SLASH;
 
- stmt:
-     binding
-       { $$ = (RootAST*)$1; }
-   | IDENTIFIER ASSIGN exp
-       { $$ = (RootAST*) new AssignExprAST($1,$3); }
-   | exp
-       { $$ = (RootAST*)$1; }
-   | ifstmt                  
-      { $$ = $1; }
- ;
+stmt:
+  binding                  { $$ = (RootAST*)$1; }
+| exp                      { $$ = (RootAST*)$1; }
+;
 
-ifstmt: // Ricorda che ifstmt ora restituisce ExprAST*
-    IF "(" exp ")" exp { // Era blockexp, ora è exp
-        $$ = new IfStmtAST($3, $5, nullptr); 
-    }
-  | IF "(" exp ")" exp ELSE exp { // Erano blockexp, ora sono exp
-        $$ = new IfStmtAST($3, $5, $7); 
-    }
+ifstmt:
+  IF "(" exp ")" exp {
+    $$ = new IfStmtAST($3, $5, nullptr);
+  }
+| IF "(" exp ")" exp ELSE exp {
+    $$ = new IfStmtAST($3, $5, $7);
+  }
 ;
 
 stmtlist:
-    /* empty */            %empty
-                            { $$ = std::vector<RootAST*>(); }
-  | stmt                    /* un unico statement senza punto-e-virgola */
-                            { $$ = std::vector<RootAST*>{ $1 }; }
-  | stmtlist ";" stmt      /* lista estesa */
-                            {
-                              $$ = $1;
-                              $$ .push_back($3);
-                            }
+  %empty                   { $$ = std::vector<RootAST*>(); }
+| stmt                     { $$ = std::vector<RootAST*>{ $1 }; }
+| stmtlist ";" stmt        {
+                             $$ = $1;
+                             $$.push_back($3);
+                           }
 ;
-
-/* --- INIZIO GRAMMATICA ESPRESSIONI CORRETTA (NON DUPLICATA) --- */
 
 exp:
-    IDENTIFIER ASSIGN exp     { $$ = new AssignExprAST($1,$3); }
-  | IDENTIFIER LBRACKET exp RBRACKET ASSIGN exp { // <-- NUOVA REGOLA PER ASSEGNAZIONE AD ARRAY
-    // $1: Nome Array (IDENTIFIER)
-    // $3: Espressione Indice (exp dentro [])
-    // $6: Espressione Valore (exp dopo =)
-    $$ = new ArrayAssignExprAST($1, $3, $6); 
-    }
-  | simple_exp                { $$ = $1; }
-  | expif                     { $$ = $1; }
+  IDENTIFIER ASSIGN exp                          { $$ = new AssignExprAST($1,$3); }
+| IDENTIFIER LBRACKET exp RBRACKET ASSIGN exp    { $$ = new ArrayAssignExprAST($1, $3, $6); }
+| simple_exp                                     { $$ = $1; }
+| expif                                          { $$ = $1; }
 ;
 
-// simple_exp contiene le espressioni non ambigue
 simple_exp:
-  NOT simple_exp %prec NOT    { $$ = new UnaryExprAST('!', $2); }
-  | MINUS simple_exp %prec UMINUS { $$ = new UnaryExprAST('-', $2); }
-  | PLUSPLUS simple_exp      { $$ = new UnaryExprAST('+', $2); }
-  | simple_exp "+" simple_exp { $$ = new BinaryExprAST('+',$1,$3); }
-  | simple_exp "-" simple_exp { $$ = new BinaryExprAST('-',$1,$3); }
-  | simple_exp "*" simple_exp { $$ = new BinaryExprAST('*',$1,$3); }
-  | simple_exp "/" simple_exp { $$ = new BinaryExprAST('/',$1,$3); }
-  | simple_exp "<" simple_exp { $$ = new BinaryExprAST('<',$1,$3); }
-  | simple_exp "==" simple_exp{ $$ = new BinaryExprAST('=',$1,$3); }
-  | simple_exp AND simple_exp  { $$ = new BinaryExprAST('a', $1, $3); }
-  | simple_exp OR simple_exp    { $$ = new BinaryExprAST('o', $1, $3); }
-  | idexp                     { $$ = $1; }
-  | "(" exp ")"               { $$ = $2; }
-  | "number"                  { $$ = new NumberExprAST($1); }
-  | INTEGER                   { $$ = new NumberExprAST(static_cast<double>($1)); }
-  | blockexp                  { $$ = $1; }
-  | forexpr                   { $$ = $1; }
-  | ifstmt                    { $$ = $1; }
+  NOT simple_exp %prec NOT        { $$ = new UnaryExprAST('!', $2); }
+| MINUS simple_exp %prec UMINUS   { $$ = new UnaryExprAST('-', $2); }
+| PLUSPLUS simple_exp             { $$ = new UnaryExprAST('+', $2); }
+| simple_exp PLUS simple_exp      { $$ = new BinaryExprAST('+',$1,$3); }
+| simple_exp MINUS simple_exp     { $$ = new BinaryExprAST('-',$1,$3); }
+| simple_exp STAR simple_exp      { $$ = new BinaryExprAST('*',$1,$3); }
+| simple_exp SLASH simple_exp     { $$ = new BinaryExprAST('/',$1,$3); }
+| simple_exp LT simple_exp        { $$ = new BinaryExprAST('<',$1,$3); }
+| simple_exp EQ simple_exp        { $$ = new BinaryExprAST('=',$1,$3); }
+| simple_exp AND simple_exp       { $$ = new BinaryExprAST('a', $1, $3); }
+| simple_exp OR simple_exp        { $$ = new BinaryExprAST('o', $1, $3); }
+| idexp                           { $$ = $1; }
+| LPAREN exp RPAREN               { $$ = $2; }
+| NUMBER                          { $$ = new NumberExprAST($1); }
+| INTEGER                         { $$ = new NumberExprAST(static_cast<double>($1)); }
+| blockexp                        { $$ = $1; }
+| forexpr                         { $$ = $1; }
+| ifstmt                          { $$ = $1; }
 ;
 
 blockexp:
-  /* 1) Blocco con valore di ritorno esplicito */
-  "{" stmtlist ";" exp "}"
-    {
-      $$ = new BlockExprAST($2, $4);
-    }
-| /* 2) Blocco con una singola espressione come valore di ritorno */
-  "{" exp "}"
-    {
-      std::vector<RootAST*> empty;
-      $$ = new BlockExprAST(empty, $2);
-    }
-| /* 3) Blocco con solo statement (valore di ritorno di default 0.0) */
-  "{" stmtlist "}"      // <-- AGGIUNGI QUESTA NUOVA REGOLA
-    {
-      // Crea un NumberExprAST(0.0) come espressione di ritorno di default
-      $$ = new BlockExprAST($2, new NumberExprAST(0.0));
-    }
+  LBRACE stmtlist ";" exp RBRACE  { $$ = new BlockExprAST($2, $4); }
+| LBRACE exp RBRACE               {
+                                    std::vector<RootAST*> empty;
+                                    $$ = new BlockExprAST(empty, $2);
+                                  }
+| LBRACE stmtlist RBRACE          { $$ = new BlockExprAST($2, new NumberExprAST(0.0)); }
 ;
 
 forexpr:
-    // Nuova regola per: for (var i = 1; ... )
-    "for" "(" binding ";" exp ";" exp ")" exp { $$ = new ForExprAST($3, nullptr, $5, $7, $9); }
-    // Vecchia regola modificata per: for (i = 1; ... )
-  | "for" "(" exp ";" exp ";" exp ")" exp   { $$ = new ForExprAST(nullptr, $3, $5, $7, $9); }
+  FOR LPAREN binding SEMICOLON exp SEMICOLON exp RPAREN exp { $$ = new ForExprAST($3, nullptr, $5, $7, $9); }
+| FOR LPAREN exp SEMICOLON exp SEMICOLON exp RPAREN exp    { $$ = new ForExprAST(nullptr, $3, $5, $7, $9); }
 ;
 
 binding:
-   "var" IDENTIFIER "=" exp  { $$ = new VarBindingAST($2,$4); }
+  VAR IDENTIFIER ASSIGN exp { $$ = new VarBindingAST($2,$4); }
 
 expif:
-  exp "?" exp ":" exp { $$ = new IfExprAST($1,$3,$5); }
+  exp QMARK exp COLON exp %prec QMARK { $$ = new IfExprAST($1,$3,$5); }
+;
 
 idexp:
-  "id"                  { $$ = new VariableExprAST($1); }
-| "id" "(" optexp ")"   { $$ = new CallExprAST($1,$3); };
-| IDENTIFIER LBRACKET exp RBRACKET { // <-- NUOVA REGOLA PER ACCESSO ARRAY
-      $$ = new ArrayAccessExprAST($1, $3); 
-  }
+  IDENTIFIER                                  { $$ = new VariableExprAST($1); }
+| IDENTIFIER LPAREN optexp RPAREN             { $$ = new CallExprAST($1,$3); }
+| IDENTIFIER LBRACKET exp RBRACKET            { $$ = new ArrayAccessExprAST($1, $3); }
+;
 
 optexp:
-  %empty                { std::vector<ExprAST*> args;
-                         $$ = args; }
-| explist               { $$ = $1; };
+  %empty                   { std::vector<ExprAST*> args; $$ = args; }
+| explist                  { $$ = $1; };
 
 explist:
-  exp                   { std::vector<ExprAST*> args;
-                         args.push_back($1);
-                         $$ = args;
-                        }
-| exp "," explist       { $3.insert($3.begin(), $1); $$ = $3; };
+  exp                      {
+                             std::vector<ExprAST*> args;
+                             args.push_back($1);
+                             $$ = args;
+                           }
+| exp COMMA explist        { $3.insert($3.begin(), $1); $$ = $3; };
 
-/* --- FINE GRAMMATICA ESPRESSIONI CORRETTA --- */
- 
 %%
 
 void
