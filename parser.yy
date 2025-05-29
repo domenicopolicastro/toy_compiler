@@ -139,11 +139,10 @@ idseq:
 %right QMARK;
 %left OR;
 %left AND;
-%right UMINUS NOT;
-%right PLUSPLUS;
 %left LT EQ;
-%left PLUS MINUS;
+%left PLUS MINUS; 
 %left STAR SLASH;
+%right NOT PLUSPLUS UMINUS; 
 
 stmt:
   binding                   { $$ = (RootAST*)$1; }

@@ -1,4 +1,3 @@
-State 28 conflicts: 8 shift/reduce
 State 43 conflicts: 1 shift/reduce
 State 91 conflicts: 1 shift/reduce
 State 104 conflicts: 2 shift/reduce
@@ -43,27 +42,27 @@ Grammar
 
    21 exp: "id" "=" exp
    22    | "id" "[" exp "]" "=" exp
-   23    | simple_exp
+   23    | simple_exp_terms
    24    | expif
+   25    | ifstmt
+   26    | forexpr
 
-   25 simple_exp: "not" simple_exp
-   26           | "-" simple_exp
-   27           | "++" simple_exp
-   28           | simple_exp "+" simple_exp
-   29           | simple_exp "-" simple_exp
-   30           | simple_exp "*" simple_exp
-   31           | simple_exp "/" simple_exp
-   32           | simple_exp "<" simple_exp
-   33           | simple_exp "==" simple_exp
-   34           | simple_exp "and" simple_exp
-   35           | simple_exp "or" simple_exp
-   36           | idexp
-   37           | "(" exp ")"
-   38           | "number"
-   39           | "integer"
-   40           | blockexp
-   41           | forexpr
-   42           | ifstmt
+   27 simple_exp_terms: "not" simple_exp_terms
+   28                 | "-" simple_exp_terms
+   29                 | "++" simple_exp_terms
+   30                 | simple_exp_terms "+" simple_exp_terms
+   31                 | simple_exp_terms "-" simple_exp_terms
+   32                 | simple_exp_terms "*" simple_exp_terms
+   33                 | simple_exp_terms "/" simple_exp_terms
+   34                 | simple_exp_terms "<" simple_exp_terms
+   35                 | simple_exp_terms "==" simple_exp_terms
+   36                 | simple_exp_terms "and" simple_exp_terms
+   37                 | simple_exp_terms "or" simple_exp_terms
+   38                 | idexp
+   39                 | "(" exp ")"
+   40                 | "number"
+   41                 | "integer"
+   42                 | blockexp
 
    43 blockexp: "{" stmtlist ";" exp "}"
    44         | "{" exp "}"
@@ -93,16 +92,16 @@ Terminals, with rules where they appear
     error (256)
     ";" (258) 3 20 43 46 47
     "," (259) 56
-    "-" (260) 26 29
-    "+" (261) 28
-    "*" (262) 30
-    "/" (263) 31
-    "(" (264) 11 16 17 37 46 47 51
-    ")" (265) 11 16 17 37 46 47 51
+    "-" (260) 28 31
+    "+" (261) 30
+    "*" (262) 32
+    "/" (263) 33
+    "(" (264) 11 16 17 39 46 47 51
+    ")" (265) 11 16 17 39 46 47 51
     "?" (266) 49
     ":" (267) 49
-    "<" (268) 32
-    "==" (269) 33
+    "<" (268) 34
+    "==" (269) 35
     "=" (270) 21 22 48
     "{" (271) 43 44 45
     "}" (272) 43 44 45
@@ -111,17 +110,17 @@ Terminals, with rules where they appear
     "var" (275) 48
     "global" (276) 7 8
     "for" (277) 46 47
-    "++" (278) 27
+    "++" (278) 29
     "if" (279) 16 17
     "else" (280) 17
-    "or" (281) 35
-    "and" (282) 34
-    "not" (283) 25
+    "or" (281) 37
+    "and" (282) 36
+    "not" (283) 27
     "[" (284) 8 22 52
     "]" (285) 8 22 52
     "id" <std::string> (286) 7 8 11 13 21 22 48 50 51 52
-    "number" <double> (287) 38
-    "integer" <long long> (288) 8 39
+    "number" <double> (287) 40
+    "integer" <long long> (288) 8 41
     UMINUS (289)
 
 
@@ -155,22 +154,22 @@ Nonterminals, with rules where they appear
         on right: 19 20
     ifstmt <ExprAST*> (44)
         on left: 16 17
-        on right: 42
+        on right: 25
     stmtlist <std::vector<RootAST*>> (45)
         on left: 18 19 20
         on right: 20 43 45
     exp <ExprAST*> (46)
-        on left: 21 22 23 24
-        on right: 9 15 16 17 21 22 37 43 44 46 47 48 49 52 55 56
-    simple_exp <ExprAST*> (47)
-        on left: 25 26 27 28 29 30 31 32 33 34 35 36 37 38 39 40 41 42
-        on right: 23 25 26 27 28 29 30 31 32 33 34 35
+        on left: 21 22 23 24 25 26
+        on right: 9 15 16 17 21 22 39 43 44 46 47 48 49 52 55 56
+    simple_exp_terms <ExprAST*> (47)
+        on left: 27 28 29 30 31 32 33 34 35 36 37 38 39 40 41 42
+        on right: 23 27 28 29 30 31 32 33 34 35 36 37
     blockexp <ExprAST*> (48)
         on left: 43 44 45
-        on right: 40
+        on right: 42
     forexpr <ExprAST*> (49)
         on left: 46 47
-        on right: 41
+        on right: 26
     binding <VarBindingAST*> (50)
         on left: 48
         on right: 14 46
@@ -179,7 +178,7 @@ Nonterminals, with rules where they appear
         on right: 24
     idexp <ExprAST*> (52)
         on left: 50 51 52
-        on right: 36
+        on right: 38
     optexp <std::vector<ExprAST*>> (53)
         on left: 53 54
         on right: 51
@@ -296,13 +295,13 @@ State 11
     "number"   shift, and go to state 24
     "integer"  shift, and go to state 25
 
-    ifstmt      go to state 26
-    exp         go to state 27
-    simple_exp  go to state 28
-    blockexp    go to state 29
-    forexpr     go to state 30
-    expif       go to state 31
-    idexp       go to state 32
+    ifstmt            go to state 26
+    exp               go to state 27
+    simple_exp_terms  go to state 28
+    blockexp          go to state 29
+    forexpr           go to state 30
+    expif             go to state 31
+    idexp             go to state 32
 
 
 State 12
@@ -352,29 +351,25 @@ State 15
 
 State 16
 
-   26 simple_exp: "-" • simple_exp
+   28 simple_exp_terms: "-" • simple_exp_terms
 
     "-"        shift, and go to state 16
     "("        shift, and go to state 17
     "{"        shift, and go to state 18
-    "for"      shift, and go to state 19
     "++"       shift, and go to state 20
-    "if"       shift, and go to state 21
     "not"      shift, and go to state 22
     "id"       shift, and go to state 37
     "number"   shift, and go to state 24
     "integer"  shift, and go to state 25
 
-    ifstmt      go to state 26
-    simple_exp  go to state 38
-    blockexp    go to state 29
-    forexpr     go to state 30
-    idexp       go to state 32
+    simple_exp_terms  go to state 38
+    blockexp          go to state 29
+    idexp             go to state 32
 
 
 State 17
 
-   37 simple_exp: "(" • exp ")"
+   39 simple_exp_terms: "(" • exp ")"
 
     "-"        shift, and go to state 16
     "("        shift, and go to state 17
@@ -387,13 +382,13 @@ State 17
     "number"   shift, and go to state 24
     "integer"  shift, and go to state 25
 
-    ifstmt      go to state 26
-    exp         go to state 39
-    simple_exp  go to state 28
-    blockexp    go to state 29
-    forexpr     go to state 30
-    expif       go to state 31
-    idexp       go to state 32
+    ifstmt            go to state 26
+    exp               go to state 39
+    simple_exp_terms  go to state 28
+    blockexp          go to state 29
+    forexpr           go to state 30
+    expif             go to state 31
+    idexp             go to state 32
 
 
 State 18
@@ -416,16 +411,16 @@ State 18
 
     $default  reduce using rule 18 (stmtlist)
 
-    stmt        go to state 41
-    ifstmt      go to state 26
-    stmtlist    go to state 42
-    exp         go to state 43
-    simple_exp  go to state 28
-    blockexp    go to state 29
-    forexpr     go to state 30
-    binding     go to state 44
-    expif       go to state 31
-    idexp       go to state 32
+    stmt              go to state 41
+    ifstmt            go to state 26
+    stmtlist          go to state 42
+    exp               go to state 43
+    simple_exp_terms  go to state 28
+    blockexp          go to state 29
+    forexpr           go to state 30
+    binding           go to state 44
+    expif             go to state 31
+    idexp             go to state 32
 
 
 State 19
@@ -438,24 +433,20 @@ State 19
 
 State 20
 
-   27 simple_exp: "++" • simple_exp
+   29 simple_exp_terms: "++" • simple_exp_terms
 
     "-"        shift, and go to state 16
     "("        shift, and go to state 17
     "{"        shift, and go to state 18
-    "for"      shift, and go to state 19
     "++"       shift, and go to state 20
-    "if"       shift, and go to state 21
     "not"      shift, and go to state 22
     "id"       shift, and go to state 37
     "number"   shift, and go to state 24
     "integer"  shift, and go to state 25
 
-    ifstmt      go to state 26
-    simple_exp  go to state 46
-    blockexp    go to state 29
-    forexpr     go to state 30
-    idexp       go to state 32
+    simple_exp_terms  go to state 46
+    blockexp          go to state 29
+    idexp             go to state 32
 
 
 State 21
@@ -468,24 +459,20 @@ State 21
 
 State 22
 
-   25 simple_exp: "not" • simple_exp
+   27 simple_exp_terms: "not" • simple_exp_terms
 
     "-"        shift, and go to state 16
     "("        shift, and go to state 17
     "{"        shift, and go to state 18
-    "for"      shift, and go to state 19
     "++"       shift, and go to state 20
-    "if"       shift, and go to state 21
     "not"      shift, and go to state 22
     "id"       shift, and go to state 37
     "number"   shift, and go to state 24
     "integer"  shift, and go to state 25
 
-    ifstmt      go to state 26
-    simple_exp  go to state 48
-    blockexp    go to state 29
-    forexpr     go to state 30
-    idexp       go to state 32
+    simple_exp_terms  go to state 48
+    blockexp          go to state 29
+    idexp             go to state 32
 
 
 State 23
@@ -505,23 +492,23 @@ State 23
 
 State 24
 
-   38 simple_exp: "number" •
+   40 simple_exp_terms: "number" •
 
-    $default  reduce using rule 38 (simple_exp)
+    $default  reduce using rule 40 (simple_exp_terms)
 
 
 State 25
 
-   39 simple_exp: "integer" •
+   41 simple_exp_terms: "integer" •
 
-    $default  reduce using rule 39 (simple_exp)
+    $default  reduce using rule 41 (simple_exp_terms)
 
 
 State 26
 
-   42 simple_exp: ifstmt •
+   25 exp: ifstmt •
 
-    $default  reduce using rule 42 (simple_exp)
+    $default  reduce using rule 25 (exp)
 
 
 State 27
@@ -536,15 +523,15 @@ State 27
 
 State 28
 
-   23 exp: simple_exp •
-   28 simple_exp: simple_exp • "+" simple_exp
-   29           | simple_exp • "-" simple_exp
-   30           | simple_exp • "*" simple_exp
-   31           | simple_exp • "/" simple_exp
-   32           | simple_exp • "<" simple_exp
-   33           | simple_exp • "==" simple_exp
-   34           | simple_exp • "and" simple_exp
-   35           | simple_exp • "or" simple_exp
+   23 exp: simple_exp_terms •
+   30 simple_exp_terms: simple_exp_terms • "+" simple_exp_terms
+   31                 | simple_exp_terms • "-" simple_exp_terms
+   32                 | simple_exp_terms • "*" simple_exp_terms
+   33                 | simple_exp_terms • "/" simple_exp_terms
+   34                 | simple_exp_terms • "<" simple_exp_terms
+   35                 | simple_exp_terms • "==" simple_exp_terms
+   36                 | simple_exp_terms • "and" simple_exp_terms
+   37                 | simple_exp_terms • "or" simple_exp_terms
 
     "-"    shift, and go to state 53
     "+"    shift, and go to state 54
@@ -555,29 +542,21 @@ State 28
     "or"   shift, and go to state 59
     "and"  shift, and go to state 60
 
-    "-"       [reduce using rule 23 (exp)]
-    "+"       [reduce using rule 23 (exp)]
-    "*"       [reduce using rule 23 (exp)]
-    "/"       [reduce using rule 23 (exp)]
-    "<"       [reduce using rule 23 (exp)]
-    "=="      [reduce using rule 23 (exp)]
-    "or"      [reduce using rule 23 (exp)]
-    "and"     [reduce using rule 23 (exp)]
     $default  reduce using rule 23 (exp)
 
 
 State 29
 
-   40 simple_exp: blockexp •
+   42 simple_exp_terms: blockexp •
 
-    $default  reduce using rule 40 (simple_exp)
+    $default  reduce using rule 42 (simple_exp_terms)
 
 
 State 30
 
-   41 simple_exp: forexpr •
+   26 exp: forexpr •
 
-    $default  reduce using rule 41 (simple_exp)
+    $default  reduce using rule 26 (exp)
 
 
 State 31
@@ -589,9 +568,9 @@ State 31
 
 State 32
 
-   36 simple_exp: idexp •
+   38 simple_exp_terms: idexp •
 
-    $default  reduce using rule 36 (simple_exp)
+    $default  reduce using rule 38 (simple_exp_terms)
 
 
 State 33
@@ -640,15 +619,15 @@ State 37
 
 State 38
 
-   26 simple_exp: "-" simple_exp •
-   28           | simple_exp • "+" simple_exp
-   29           | simple_exp • "-" simple_exp
-   30           | simple_exp • "*" simple_exp
-   31           | simple_exp • "/" simple_exp
-   32           | simple_exp • "<" simple_exp
-   33           | simple_exp • "==" simple_exp
-   34           | simple_exp • "and" simple_exp
-   35           | simple_exp • "or" simple_exp
+   28 simple_exp_terms: "-" simple_exp_terms •
+   30                 | simple_exp_terms • "+" simple_exp_terms
+   31                 | simple_exp_terms • "-" simple_exp_terms
+   32                 | simple_exp_terms • "*" simple_exp_terms
+   33                 | simple_exp_terms • "/" simple_exp_terms
+   34                 | simple_exp_terms • "<" simple_exp_terms
+   35                 | simple_exp_terms • "==" simple_exp_terms
+   36                 | simple_exp_terms • "and" simple_exp_terms
+   37                 | simple_exp_terms • "or" simple_exp_terms
 
     "-"   shift, and go to state 53
     "+"   shift, and go to state 54
@@ -657,12 +636,12 @@ State 38
     "<"   shift, and go to state 57
     "=="  shift, and go to state 58
 
-    $default  reduce using rule 26 (simple_exp)
+    $default  reduce using rule 28 (simple_exp_terms)
 
 
 State 39
 
-   37 simple_exp: "(" exp • ")"
+   39 simple_exp_terms: "(" exp • ")"
    49 expif: exp • "?" exp ":" exp
 
     ")"  shift, and go to state 65
@@ -730,27 +709,27 @@ State 45
     "number"   shift, and go to state 24
     "integer"  shift, and go to state 25
 
-    ifstmt      go to state 26
-    exp         go to state 70
-    simple_exp  go to state 28
-    blockexp    go to state 29
-    forexpr     go to state 30
-    binding     go to state 71
-    expif       go to state 31
-    idexp       go to state 32
+    ifstmt            go to state 26
+    exp               go to state 70
+    simple_exp_terms  go to state 28
+    blockexp          go to state 29
+    forexpr           go to state 30
+    binding           go to state 71
+    expif             go to state 31
+    idexp             go to state 32
 
 
 State 46
 
-   27 simple_exp: "++" simple_exp •
-   28           | simple_exp • "+" simple_exp
-   29           | simple_exp • "-" simple_exp
-   30           | simple_exp • "*" simple_exp
-   31           | simple_exp • "/" simple_exp
-   32           | simple_exp • "<" simple_exp
-   33           | simple_exp • "==" simple_exp
-   34           | simple_exp • "and" simple_exp
-   35           | simple_exp • "or" simple_exp
+   29 simple_exp_terms: "++" simple_exp_terms •
+   30                 | simple_exp_terms • "+" simple_exp_terms
+   31                 | simple_exp_terms • "-" simple_exp_terms
+   32                 | simple_exp_terms • "*" simple_exp_terms
+   33                 | simple_exp_terms • "/" simple_exp_terms
+   34                 | simple_exp_terms • "<" simple_exp_terms
+   35                 | simple_exp_terms • "==" simple_exp_terms
+   36                 | simple_exp_terms • "and" simple_exp_terms
+   37                 | simple_exp_terms • "or" simple_exp_terms
 
     "-"   shift, and go to state 53
     "+"   shift, and go to state 54
@@ -759,7 +738,7 @@ State 46
     "<"   shift, and go to state 57
     "=="  shift, and go to state 58
 
-    $default  reduce using rule 27 (simple_exp)
+    $default  reduce using rule 29 (simple_exp_terms)
 
 
 State 47
@@ -778,26 +757,26 @@ State 47
     "number"   shift, and go to state 24
     "integer"  shift, and go to state 25
 
-    ifstmt      go to state 26
-    exp         go to state 72
-    simple_exp  go to state 28
-    blockexp    go to state 29
-    forexpr     go to state 30
-    expif       go to state 31
-    idexp       go to state 32
+    ifstmt            go to state 26
+    exp               go to state 72
+    simple_exp_terms  go to state 28
+    blockexp          go to state 29
+    forexpr           go to state 30
+    expif             go to state 31
+    idexp             go to state 32
 
 
 State 48
 
-   25 simple_exp: "not" simple_exp •
-   28           | simple_exp • "+" simple_exp
-   29           | simple_exp • "-" simple_exp
-   30           | simple_exp • "*" simple_exp
-   31           | simple_exp • "/" simple_exp
-   32           | simple_exp • "<" simple_exp
-   33           | simple_exp • "==" simple_exp
-   34           | simple_exp • "and" simple_exp
-   35           | simple_exp • "or" simple_exp
+   27 simple_exp_terms: "not" simple_exp_terms •
+   30                 | simple_exp_terms • "+" simple_exp_terms
+   31                 | simple_exp_terms • "-" simple_exp_terms
+   32                 | simple_exp_terms • "*" simple_exp_terms
+   33                 | simple_exp_terms • "/" simple_exp_terms
+   34                 | simple_exp_terms • "<" simple_exp_terms
+   35                 | simple_exp_terms • "==" simple_exp_terms
+   36                 | simple_exp_terms • "and" simple_exp_terms
+   37                 | simple_exp_terms • "or" simple_exp_terms
 
     "-"   shift, and go to state 53
     "+"   shift, and go to state 54
@@ -806,7 +785,7 @@ State 48
     "<"   shift, and go to state 57
     "=="  shift, and go to state 58
 
-    $default  reduce using rule 25 (simple_exp)
+    $default  reduce using rule 27 (simple_exp_terms)
 
 
 State 49
@@ -826,15 +805,15 @@ State 49
 
     $default  reduce using rule 53 (optexp)
 
-    ifstmt      go to state 26
-    exp         go to state 73
-    simple_exp  go to state 28
-    blockexp    go to state 29
-    forexpr     go to state 30
-    expif       go to state 31
-    idexp       go to state 32
-    optexp      go to state 74
-    explist     go to state 75
+    ifstmt            go to state 26
+    exp               go to state 73
+    simple_exp_terms  go to state 28
+    blockexp          go to state 29
+    forexpr           go to state 30
+    expif             go to state 31
+    idexp             go to state 32
+    optexp            go to state 74
+    explist           go to state 75
 
 
 State 50
@@ -852,13 +831,13 @@ State 50
     "number"   shift, and go to state 24
     "integer"  shift, and go to state 25
 
-    ifstmt      go to state 26
-    exp         go to state 76
-    simple_exp  go to state 28
-    blockexp    go to state 29
-    forexpr     go to state 30
-    expif       go to state 31
-    idexp       go to state 32
+    ifstmt            go to state 26
+    exp               go to state 76
+    simple_exp_terms  go to state 28
+    blockexp          go to state 29
+    forexpr           go to state 30
+    expif             go to state 31
+    idexp             go to state 32
 
 
 State 51
@@ -877,13 +856,13 @@ State 51
     "number"   shift, and go to state 24
     "integer"  shift, and go to state 25
 
-    ifstmt      go to state 26
-    exp         go to state 77
-    simple_exp  go to state 28
-    blockexp    go to state 29
-    forexpr     go to state 30
-    expif       go to state 31
-    idexp       go to state 32
+    ifstmt            go to state 26
+    exp               go to state 77
+    simple_exp_terms  go to state 28
+    blockexp          go to state 29
+    forexpr           go to state 30
+    expif             go to state 31
+    idexp             go to state 32
 
 
 State 52
@@ -901,189 +880,157 @@ State 52
     "number"   shift, and go to state 24
     "integer"  shift, and go to state 25
 
-    ifstmt      go to state 26
-    exp         go to state 78
-    simple_exp  go to state 28
-    blockexp    go to state 29
-    forexpr     go to state 30
-    expif       go to state 31
-    idexp       go to state 32
+    ifstmt            go to state 26
+    exp               go to state 78
+    simple_exp_terms  go to state 28
+    blockexp          go to state 29
+    forexpr           go to state 30
+    expif             go to state 31
+    idexp             go to state 32
 
 
 State 53
 
-   29 simple_exp: simple_exp "-" • simple_exp
+   31 simple_exp_terms: simple_exp_terms "-" • simple_exp_terms
 
     "-"        shift, and go to state 16
     "("        shift, and go to state 17
     "{"        shift, and go to state 18
-    "for"      shift, and go to state 19
     "++"       shift, and go to state 20
-    "if"       shift, and go to state 21
     "not"      shift, and go to state 22
     "id"       shift, and go to state 37
     "number"   shift, and go to state 24
     "integer"  shift, and go to state 25
 
-    ifstmt      go to state 26
-    simple_exp  go to state 79
-    blockexp    go to state 29
-    forexpr     go to state 30
-    idexp       go to state 32
+    simple_exp_terms  go to state 79
+    blockexp          go to state 29
+    idexp             go to state 32
 
 
 State 54
 
-   28 simple_exp: simple_exp "+" • simple_exp
+   30 simple_exp_terms: simple_exp_terms "+" • simple_exp_terms
 
     "-"        shift, and go to state 16
     "("        shift, and go to state 17
     "{"        shift, and go to state 18
-    "for"      shift, and go to state 19
     "++"       shift, and go to state 20
-    "if"       shift, and go to state 21
     "not"      shift, and go to state 22
     "id"       shift, and go to state 37
     "number"   shift, and go to state 24
     "integer"  shift, and go to state 25
 
-    ifstmt      go to state 26
-    simple_exp  go to state 80
-    blockexp    go to state 29
-    forexpr     go to state 30
-    idexp       go to state 32
+    simple_exp_terms  go to state 80
+    blockexp          go to state 29
+    idexp             go to state 32
 
 
 State 55
 
-   30 simple_exp: simple_exp "*" • simple_exp
+   32 simple_exp_terms: simple_exp_terms "*" • simple_exp_terms
 
     "-"        shift, and go to state 16
     "("        shift, and go to state 17
     "{"        shift, and go to state 18
-    "for"      shift, and go to state 19
     "++"       shift, and go to state 20
-    "if"       shift, and go to state 21
     "not"      shift, and go to state 22
     "id"       shift, and go to state 37
     "number"   shift, and go to state 24
     "integer"  shift, and go to state 25
 
-    ifstmt      go to state 26
-    simple_exp  go to state 81
-    blockexp    go to state 29
-    forexpr     go to state 30
-    idexp       go to state 32
+    simple_exp_terms  go to state 81
+    blockexp          go to state 29
+    idexp             go to state 32
 
 
 State 56
 
-   31 simple_exp: simple_exp "/" • simple_exp
+   33 simple_exp_terms: simple_exp_terms "/" • simple_exp_terms
 
     "-"        shift, and go to state 16
     "("        shift, and go to state 17
     "{"        shift, and go to state 18
-    "for"      shift, and go to state 19
     "++"       shift, and go to state 20
-    "if"       shift, and go to state 21
     "not"      shift, and go to state 22
     "id"       shift, and go to state 37
     "number"   shift, and go to state 24
     "integer"  shift, and go to state 25
 
-    ifstmt      go to state 26
-    simple_exp  go to state 82
-    blockexp    go to state 29
-    forexpr     go to state 30
-    idexp       go to state 32
+    simple_exp_terms  go to state 82
+    blockexp          go to state 29
+    idexp             go to state 32
 
 
 State 57
 
-   32 simple_exp: simple_exp "<" • simple_exp
+   34 simple_exp_terms: simple_exp_terms "<" • simple_exp_terms
 
     "-"        shift, and go to state 16
     "("        shift, and go to state 17
     "{"        shift, and go to state 18
-    "for"      shift, and go to state 19
     "++"       shift, and go to state 20
-    "if"       shift, and go to state 21
     "not"      shift, and go to state 22
     "id"       shift, and go to state 37
     "number"   shift, and go to state 24
     "integer"  shift, and go to state 25
 
-    ifstmt      go to state 26
-    simple_exp  go to state 83
-    blockexp    go to state 29
-    forexpr     go to state 30
-    idexp       go to state 32
+    simple_exp_terms  go to state 83
+    blockexp          go to state 29
+    idexp             go to state 32
 
 
 State 58
 
-   33 simple_exp: simple_exp "==" • simple_exp
+   35 simple_exp_terms: simple_exp_terms "==" • simple_exp_terms
 
     "-"        shift, and go to state 16
     "("        shift, and go to state 17
     "{"        shift, and go to state 18
-    "for"      shift, and go to state 19
     "++"       shift, and go to state 20
-    "if"       shift, and go to state 21
     "not"      shift, and go to state 22
     "id"       shift, and go to state 37
     "number"   shift, and go to state 24
     "integer"  shift, and go to state 25
 
-    ifstmt      go to state 26
-    simple_exp  go to state 84
-    blockexp    go to state 29
-    forexpr     go to state 30
-    idexp       go to state 32
+    simple_exp_terms  go to state 84
+    blockexp          go to state 29
+    idexp             go to state 32
 
 
 State 59
 
-   35 simple_exp: simple_exp "or" • simple_exp
+   37 simple_exp_terms: simple_exp_terms "or" • simple_exp_terms
 
     "-"        shift, and go to state 16
     "("        shift, and go to state 17
     "{"        shift, and go to state 18
-    "for"      shift, and go to state 19
     "++"       shift, and go to state 20
-    "if"       shift, and go to state 21
     "not"      shift, and go to state 22
     "id"       shift, and go to state 37
     "number"   shift, and go to state 24
     "integer"  shift, and go to state 25
 
-    ifstmt      go to state 26
-    simple_exp  go to state 85
-    blockexp    go to state 29
-    forexpr     go to state 30
-    idexp       go to state 32
+    simple_exp_terms  go to state 85
+    blockexp          go to state 29
+    idexp             go to state 32
 
 
 State 60
 
-   34 simple_exp: simple_exp "and" • simple_exp
+   36 simple_exp_terms: simple_exp_terms "and" • simple_exp_terms
 
     "-"        shift, and go to state 16
     "("        shift, and go to state 17
     "{"        shift, and go to state 18
-    "for"      shift, and go to state 19
     "++"       shift, and go to state 20
-    "if"       shift, and go to state 21
     "not"      shift, and go to state 22
     "id"       shift, and go to state 37
     "number"   shift, and go to state 24
     "integer"  shift, and go to state 25
 
-    ifstmt      go to state 26
-    simple_exp  go to state 86
-    blockexp    go to state 29
-    forexpr     go to state 30
-    idexp       go to state 32
+    simple_exp_terms  go to state 86
+    blockexp          go to state 29
+    idexp             go to state 32
 
 
 State 61
@@ -1122,20 +1069,20 @@ State 64
     "number"   shift, and go to state 24
     "integer"  shift, and go to state 25
 
-    ifstmt      go to state 26
-    exp         go to state 88
-    simple_exp  go to state 28
-    blockexp    go to state 29
-    forexpr     go to state 30
-    expif       go to state 31
-    idexp       go to state 32
+    ifstmt            go to state 26
+    exp               go to state 88
+    simple_exp_terms  go to state 28
+    blockexp          go to state 29
+    forexpr           go to state 30
+    expif             go to state 31
+    idexp             go to state 32
 
 
 State 65
 
-   37 simple_exp: "(" exp ")" •
+   39 simple_exp_terms: "(" exp ")" •
 
-    $default  reduce using rule 37 (simple_exp)
+    $default  reduce using rule 39 (simple_exp_terms)
 
 
 State 66
@@ -1162,15 +1109,15 @@ State 67
     "number"   shift, and go to state 24
     "integer"  shift, and go to state 25
 
-    stmt        go to state 90
-    ifstmt      go to state 26
-    exp         go to state 91
-    simple_exp  go to state 28
-    blockexp    go to state 29
-    forexpr     go to state 30
-    binding     go to state 44
-    expif       go to state 31
-    idexp       go to state 32
+    stmt              go to state 90
+    ifstmt            go to state 26
+    exp               go to state 91
+    simple_exp_terms  go to state 28
+    blockexp          go to state 29
+    forexpr           go to state 30
+    binding           go to state 44
+    expif             go to state 31
+    idexp             go to state 32
 
 
 State 68
@@ -1270,121 +1217,121 @@ State 78
 
 State 79
 
-   28 simple_exp: simple_exp • "+" simple_exp
-   29           | simple_exp • "-" simple_exp
-   29           | simple_exp "-" simple_exp •
-   30           | simple_exp • "*" simple_exp
-   31           | simple_exp • "/" simple_exp
-   32           | simple_exp • "<" simple_exp
-   33           | simple_exp • "==" simple_exp
-   34           | simple_exp • "and" simple_exp
-   35           | simple_exp • "or" simple_exp
+   30 simple_exp_terms: simple_exp_terms • "+" simple_exp_terms
+   31                 | simple_exp_terms • "-" simple_exp_terms
+   31                 | simple_exp_terms "-" simple_exp_terms •
+   32                 | simple_exp_terms • "*" simple_exp_terms
+   33                 | simple_exp_terms • "/" simple_exp_terms
+   34                 | simple_exp_terms • "<" simple_exp_terms
+   35                 | simple_exp_terms • "==" simple_exp_terms
+   36                 | simple_exp_terms • "and" simple_exp_terms
+   37                 | simple_exp_terms • "or" simple_exp_terms
 
     "*"  shift, and go to state 55
     "/"  shift, and go to state 56
 
-    $default  reduce using rule 29 (simple_exp)
+    $default  reduce using rule 31 (simple_exp_terms)
 
 
 State 80
 
-   28 simple_exp: simple_exp • "+" simple_exp
-   28           | simple_exp "+" simple_exp •
-   29           | simple_exp • "-" simple_exp
-   30           | simple_exp • "*" simple_exp
-   31           | simple_exp • "/" simple_exp
-   32           | simple_exp • "<" simple_exp
-   33           | simple_exp • "==" simple_exp
-   34           | simple_exp • "and" simple_exp
-   35           | simple_exp • "or" simple_exp
+   30 simple_exp_terms: simple_exp_terms • "+" simple_exp_terms
+   30                 | simple_exp_terms "+" simple_exp_terms •
+   31                 | simple_exp_terms • "-" simple_exp_terms
+   32                 | simple_exp_terms • "*" simple_exp_terms
+   33                 | simple_exp_terms • "/" simple_exp_terms
+   34                 | simple_exp_terms • "<" simple_exp_terms
+   35                 | simple_exp_terms • "==" simple_exp_terms
+   36                 | simple_exp_terms • "and" simple_exp_terms
+   37                 | simple_exp_terms • "or" simple_exp_terms
 
     "*"  shift, and go to state 55
     "/"  shift, and go to state 56
 
-    $default  reduce using rule 28 (simple_exp)
+    $default  reduce using rule 30 (simple_exp_terms)
 
 
 State 81
 
-   28 simple_exp: simple_exp • "+" simple_exp
-   29           | simple_exp • "-" simple_exp
-   30           | simple_exp • "*" simple_exp
-   30           | simple_exp "*" simple_exp •
-   31           | simple_exp • "/" simple_exp
-   32           | simple_exp • "<" simple_exp
-   33           | simple_exp • "==" simple_exp
-   34           | simple_exp • "and" simple_exp
-   35           | simple_exp • "or" simple_exp
+   30 simple_exp_terms: simple_exp_terms • "+" simple_exp_terms
+   31                 | simple_exp_terms • "-" simple_exp_terms
+   32                 | simple_exp_terms • "*" simple_exp_terms
+   32                 | simple_exp_terms "*" simple_exp_terms •
+   33                 | simple_exp_terms • "/" simple_exp_terms
+   34                 | simple_exp_terms • "<" simple_exp_terms
+   35                 | simple_exp_terms • "==" simple_exp_terms
+   36                 | simple_exp_terms • "and" simple_exp_terms
+   37                 | simple_exp_terms • "or" simple_exp_terms
 
-    $default  reduce using rule 30 (simple_exp)
+    $default  reduce using rule 32 (simple_exp_terms)
 
 
 State 82
 
-   28 simple_exp: simple_exp • "+" simple_exp
-   29           | simple_exp • "-" simple_exp
-   30           | simple_exp • "*" simple_exp
-   31           | simple_exp • "/" simple_exp
-   31           | simple_exp "/" simple_exp •
-   32           | simple_exp • "<" simple_exp
-   33           | simple_exp • "==" simple_exp
-   34           | simple_exp • "and" simple_exp
-   35           | simple_exp • "or" simple_exp
+   30 simple_exp_terms: simple_exp_terms • "+" simple_exp_terms
+   31                 | simple_exp_terms • "-" simple_exp_terms
+   32                 | simple_exp_terms • "*" simple_exp_terms
+   33                 | simple_exp_terms • "/" simple_exp_terms
+   33                 | simple_exp_terms "/" simple_exp_terms •
+   34                 | simple_exp_terms • "<" simple_exp_terms
+   35                 | simple_exp_terms • "==" simple_exp_terms
+   36                 | simple_exp_terms • "and" simple_exp_terms
+   37                 | simple_exp_terms • "or" simple_exp_terms
 
-    $default  reduce using rule 31 (simple_exp)
+    $default  reduce using rule 33 (simple_exp_terms)
 
 
 State 83
 
-   28 simple_exp: simple_exp • "+" simple_exp
-   29           | simple_exp • "-" simple_exp
-   30           | simple_exp • "*" simple_exp
-   31           | simple_exp • "/" simple_exp
-   32           | simple_exp • "<" simple_exp
-   32           | simple_exp "<" simple_exp •
-   33           | simple_exp • "==" simple_exp
-   34           | simple_exp • "and" simple_exp
-   35           | simple_exp • "or" simple_exp
+   30 simple_exp_terms: simple_exp_terms • "+" simple_exp_terms
+   31                 | simple_exp_terms • "-" simple_exp_terms
+   32                 | simple_exp_terms • "*" simple_exp_terms
+   33                 | simple_exp_terms • "/" simple_exp_terms
+   34                 | simple_exp_terms • "<" simple_exp_terms
+   34                 | simple_exp_terms "<" simple_exp_terms •
+   35                 | simple_exp_terms • "==" simple_exp_terms
+   36                 | simple_exp_terms • "and" simple_exp_terms
+   37                 | simple_exp_terms • "or" simple_exp_terms
 
     "-"  shift, and go to state 53
     "+"  shift, and go to state 54
     "*"  shift, and go to state 55
     "/"  shift, and go to state 56
 
-    $default  reduce using rule 32 (simple_exp)
+    $default  reduce using rule 34 (simple_exp_terms)
 
 
 State 84
 
-   28 simple_exp: simple_exp • "+" simple_exp
-   29           | simple_exp • "-" simple_exp
-   30           | simple_exp • "*" simple_exp
-   31           | simple_exp • "/" simple_exp
-   32           | simple_exp • "<" simple_exp
-   33           | simple_exp • "==" simple_exp
-   33           | simple_exp "==" simple_exp •
-   34           | simple_exp • "and" simple_exp
-   35           | simple_exp • "or" simple_exp
+   30 simple_exp_terms: simple_exp_terms • "+" simple_exp_terms
+   31                 | simple_exp_terms • "-" simple_exp_terms
+   32                 | simple_exp_terms • "*" simple_exp_terms
+   33                 | simple_exp_terms • "/" simple_exp_terms
+   34                 | simple_exp_terms • "<" simple_exp_terms
+   35                 | simple_exp_terms • "==" simple_exp_terms
+   35                 | simple_exp_terms "==" simple_exp_terms •
+   36                 | simple_exp_terms • "and" simple_exp_terms
+   37                 | simple_exp_terms • "or" simple_exp_terms
 
     "-"  shift, and go to state 53
     "+"  shift, and go to state 54
     "*"  shift, and go to state 55
     "/"  shift, and go to state 56
 
-    $default  reduce using rule 33 (simple_exp)
+    $default  reduce using rule 35 (simple_exp_terms)
 
 
 State 85
 
-   28 simple_exp: simple_exp • "+" simple_exp
-   29           | simple_exp • "-" simple_exp
-   30           | simple_exp • "*" simple_exp
-   31           | simple_exp • "/" simple_exp
-   32           | simple_exp • "<" simple_exp
-   33           | simple_exp • "==" simple_exp
-   34           | simple_exp • "and" simple_exp
-   35           | simple_exp • "or" simple_exp
-   35           | simple_exp "or" simple_exp •
+   30 simple_exp_terms: simple_exp_terms • "+" simple_exp_terms
+   31                 | simple_exp_terms • "-" simple_exp_terms
+   32                 | simple_exp_terms • "*" simple_exp_terms
+   33                 | simple_exp_terms • "/" simple_exp_terms
+   34                 | simple_exp_terms • "<" simple_exp_terms
+   35                 | simple_exp_terms • "==" simple_exp_terms
+   36                 | simple_exp_terms • "and" simple_exp_terms
+   37                 | simple_exp_terms • "or" simple_exp_terms
+   37                 | simple_exp_terms "or" simple_exp_terms •
 
     "-"    shift, and go to state 53
     "+"    shift, and go to state 54
@@ -1394,20 +1341,20 @@ State 85
     "=="   shift, and go to state 58
     "and"  shift, and go to state 60
 
-    $default  reduce using rule 35 (simple_exp)
+    $default  reduce using rule 37 (simple_exp_terms)
 
 
 State 86
 
-   28 simple_exp: simple_exp • "+" simple_exp
-   29           | simple_exp • "-" simple_exp
-   30           | simple_exp • "*" simple_exp
-   31           | simple_exp • "/" simple_exp
-   32           | simple_exp • "<" simple_exp
-   33           | simple_exp • "==" simple_exp
-   34           | simple_exp • "and" simple_exp
-   34           | simple_exp "and" simple_exp •
-   35           | simple_exp • "or" simple_exp
+   30 simple_exp_terms: simple_exp_terms • "+" simple_exp_terms
+   31                 | simple_exp_terms • "-" simple_exp_terms
+   32                 | simple_exp_terms • "*" simple_exp_terms
+   33                 | simple_exp_terms • "/" simple_exp_terms
+   34                 | simple_exp_terms • "<" simple_exp_terms
+   35                 | simple_exp_terms • "==" simple_exp_terms
+   36                 | simple_exp_terms • "and" simple_exp_terms
+   36                 | simple_exp_terms "and" simple_exp_terms •
+   37                 | simple_exp_terms • "or" simple_exp_terms
 
     "-"   shift, and go to state 53
     "+"   shift, and go to state 54
@@ -1416,7 +1363,7 @@ State 86
     "<"   shift, and go to state 57
     "=="  shift, and go to state 58
 
-    $default  reduce using rule 34 (simple_exp)
+    $default  reduce using rule 36 (simple_exp_terms)
 
 
 State 87
@@ -1450,13 +1397,13 @@ State 89
     "number"   shift, and go to state 24
     "integer"  shift, and go to state 25
 
-    ifstmt      go to state 26
-    exp         go to state 100
-    simple_exp  go to state 28
-    blockexp    go to state 29
-    forexpr     go to state 30
-    expif       go to state 31
-    idexp       go to state 32
+    ifstmt            go to state 26
+    exp               go to state 100
+    simple_exp_terms  go to state 28
+    blockexp          go to state 29
+    forexpr           go to state 30
+    expif             go to state 31
+    idexp             go to state 32
 
 
 State 90
@@ -1494,13 +1441,13 @@ State 92
     "number"   shift, and go to state 24
     "integer"  shift, and go to state 25
 
-    ifstmt      go to state 26
-    exp         go to state 102
-    simple_exp  go to state 28
-    blockexp    go to state 29
-    forexpr     go to state 30
-    expif       go to state 31
-    idexp       go to state 32
+    ifstmt            go to state 26
+    exp               go to state 102
+    simple_exp_terms  go to state 28
+    blockexp          go to state 29
+    forexpr           go to state 30
+    expif             go to state 31
+    idexp             go to state 32
 
 
 State 93
@@ -1518,13 +1465,13 @@ State 93
     "number"   shift, and go to state 24
     "integer"  shift, and go to state 25
 
-    ifstmt      go to state 26
-    exp         go to state 103
-    simple_exp  go to state 28
-    blockexp    go to state 29
-    forexpr     go to state 30
-    expif       go to state 31
-    idexp       go to state 32
+    ifstmt            go to state 26
+    exp               go to state 103
+    simple_exp_terms  go to state 28
+    blockexp          go to state 29
+    forexpr           go to state 30
+    expif             go to state 31
+    idexp             go to state 32
 
 
 State 94
@@ -1543,13 +1490,13 @@ State 94
     "number"   shift, and go to state 24
     "integer"  shift, and go to state 25
 
-    ifstmt      go to state 26
-    exp         go to state 104
-    simple_exp  go to state 28
-    blockexp    go to state 29
-    forexpr     go to state 30
-    expif       go to state 31
-    idexp       go to state 32
+    ifstmt            go to state 26
+    exp               go to state 104
+    simple_exp_terms  go to state 28
+    blockexp          go to state 29
+    forexpr           go to state 30
+    expif             go to state 31
+    idexp             go to state 32
 
 
 State 95
@@ -1567,14 +1514,14 @@ State 95
     "number"   shift, and go to state 24
     "integer"  shift, and go to state 25
 
-    ifstmt      go to state 26
-    exp         go to state 73
-    simple_exp  go to state 28
-    blockexp    go to state 29
-    forexpr     go to state 30
-    expif       go to state 31
-    idexp       go to state 32
-    explist     go to state 105
+    ifstmt            go to state 26
+    exp               go to state 73
+    simple_exp_terms  go to state 28
+    blockexp          go to state 29
+    forexpr           go to state 30
+    expif             go to state 31
+    idexp             go to state 32
+    explist           go to state 105
 
 
 State 96
@@ -1609,13 +1556,13 @@ State 98
     "number"   shift, and go to state 24
     "integer"  shift, and go to state 25
 
-    ifstmt      go to state 26
-    exp         go to state 107
-    simple_exp  go to state 28
-    blockexp    go to state 29
-    forexpr     go to state 30
-    expif       go to state 31
-    idexp       go to state 32
+    ifstmt            go to state 26
+    exp               go to state 107
+    simple_exp_terms  go to state 28
+    blockexp          go to state 29
+    forexpr           go to state 30
+    expif             go to state 31
+    idexp             go to state 32
 
 
 State 99
@@ -1696,13 +1643,13 @@ State 106
     "number"   shift, and go to state 24
     "integer"  shift, and go to state 25
 
-    ifstmt      go to state 26
-    exp         go to state 111
-    simple_exp  go to state 28
-    blockexp    go to state 29
-    forexpr     go to state 30
-    expif       go to state 31
-    idexp       go to state 32
+    ifstmt            go to state 26
+    exp               go to state 111
+    simple_exp_terms  go to state 28
+    blockexp          go to state 29
+    forexpr           go to state 30
+    expif             go to state 31
+    idexp             go to state 32
 
 
 State 107
@@ -1730,13 +1677,13 @@ State 108
     "number"   shift, and go to state 24
     "integer"  shift, and go to state 25
 
-    ifstmt      go to state 26
-    exp         go to state 112
-    simple_exp  go to state 28
-    blockexp    go to state 29
-    forexpr     go to state 30
-    expif       go to state 31
-    idexp       go to state 32
+    ifstmt            go to state 26
+    exp               go to state 112
+    simple_exp_terms  go to state 28
+    blockexp          go to state 29
+    forexpr           go to state 30
+    expif             go to state 31
+    idexp             go to state 32
 
 
 State 109
@@ -1754,13 +1701,13 @@ State 109
     "number"   shift, and go to state 24
     "integer"  shift, and go to state 25
 
-    ifstmt      go to state 26
-    exp         go to state 113
-    simple_exp  go to state 28
-    blockexp    go to state 29
-    forexpr     go to state 30
-    expif       go to state 31
-    idexp       go to state 32
+    ifstmt            go to state 26
+    exp               go to state 113
+    simple_exp_terms  go to state 28
+    blockexp          go to state 29
+    forexpr           go to state 30
+    expif             go to state 31
+    idexp             go to state 32
 
 
 State 110
@@ -1778,13 +1725,13 @@ State 110
     "number"   shift, and go to state 24
     "integer"  shift, and go to state 25
 
-    ifstmt      go to state 26
-    exp         go to state 114
-    simple_exp  go to state 28
-    blockexp    go to state 29
-    forexpr     go to state 30
-    expif       go to state 31
-    idexp       go to state 32
+    ifstmt            go to state 26
+    exp               go to state 114
+    simple_exp_terms  go to state 28
+    blockexp          go to state 29
+    forexpr           go to state 30
+    expif             go to state 31
+    idexp             go to state 32
 
 
 State 111
@@ -1841,13 +1788,13 @@ State 115
     "number"   shift, and go to state 24
     "integer"  shift, and go to state 25
 
-    ifstmt      go to state 26
-    exp         go to state 117
-    simple_exp  go to state 28
-    blockexp    go to state 29
-    forexpr     go to state 30
-    expif       go to state 31
-    idexp       go to state 32
+    ifstmt            go to state 26
+    exp               go to state 117
+    simple_exp_terms  go to state 28
+    blockexp          go to state 29
+    forexpr           go to state 30
+    expif             go to state 31
+    idexp             go to state 32
 
 
 State 116
@@ -1865,13 +1812,13 @@ State 116
     "number"   shift, and go to state 24
     "integer"  shift, and go to state 25
 
-    ifstmt      go to state 26
-    exp         go to state 118
-    simple_exp  go to state 28
-    blockexp    go to state 29
-    forexpr     go to state 30
-    expif       go to state 31
-    idexp       go to state 32
+    ifstmt            go to state 26
+    exp               go to state 118
+    simple_exp_terms  go to state 28
+    blockexp          go to state 29
+    forexpr           go to state 30
+    expif             go to state 31
+    idexp             go to state 32
 
 
 State 117
