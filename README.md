@@ -179,13 +179,3 @@ printval(0,1); // Newline
 
 *(Note: You would need to provide C implementations for `randinit`, `randk`, `timek`, and `printval` and link them during the final executable creation step.)*
 
-## Future Work / Potential Improvements
-
-* More data types (integers, strings, booleans).
-* Error reporting improvements (more precise error messages and locations).
-* Basic type checking.
-* Optimization passes.
-* Support for user-defined structs/classes.
-* More extensive standard library functions.
-* Post-increment/decrement operators.
-
